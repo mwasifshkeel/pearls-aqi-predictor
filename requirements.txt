@@ -1,0 +1,10 @@
+requests>=2.32.0
+python-dotenv>=1.0.1
+pandas>=2.2.2
+numpy>=1.26.4
+scikit-learn>=1.5.0
+tensorflow>=2.16.1
+hopsworks>=3.7.0
+streamlit>=1.35.0
+flask>=3.0.3
+shap>=0.46.0

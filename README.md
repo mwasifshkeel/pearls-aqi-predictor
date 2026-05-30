@@ -1,59 +1,48 @@
-# Pearls AQI Predictor
+# AQI Predictor — Rawalpindi (Open-Meteo + MongoDB)
 
-End-to-end AQI forecasting project using a serverless-friendly ML pipeline.
+End-to-end serverless AQI forecasting pipeline using Open-Meteo for data, Hopsworks for feature store/model registry, GitHub Actions for orchestration, and a Next.js dashboard.
 
-### Project Structure
-
-```text
-.
-├── app/
-├── config/
-├── data/
-│   └── raw/
-├── feature_pipeline/
-│   └── fetch_data.py
-├── notebooks/
-├── training_pipeline/
-├── .env.example
-├── requirements.txt
-└── README.md
-```
-
-## Setup
-
-1. Create and activate a Python virtual environment.
-2. Install dependencies:
+## Quickstart
 
 ```bash
+python -m venv .venv
+source .venv/bin/activate
 pip install -r requirements.txt
 ```
 
-3. Create your environment file:
+Set environment variables:
 
 ```bash
-cp .env.example .env
+export MONGO_URI=your_mongodb_uri
+export MONGO_DB_NAME=aqi_predictor
 ```
 
-4. Add your AQICN token in `.env`.
-
-Get a free token at https://aqicn.org/data-platform/token
-
-## Fetch Raw AQI Data
-
-Run:
+Run pipelines locally:
 
 ```bash
-python feature_pipeline/fetch_data.py
+python pipelines/feature_pipeline.py
+python pipelines/training_pipeline.py
 ```
 
-Optional city override:
+## Frontend
 
 ```bash
-python feature_pipeline/fetch_data.py --city Rawalpindi
+cd frontend
+npm install
+npm run dev
 ```
 
-The script stores the raw API response in:
+Set `MONGO_URI` (and optionally `MONGO_DB_NAME`) in your environment or Vercel dashboard for API routes.
 
-`data/raw/sample.json`
+## GitHub Actions
 
-It also prints a small summary of key weather and pollutant signals.
+Set repository secrets:
+
+- `MONGO_URI`
+- `MONGO_DB_NAME` (optional)
+- `RAWALPINDI_LAT`, `RAWALPINDI_LON` (optional overrides)
+- `TRAINING_WINDOW_DAYS` (default is 90)
+
+## Repo Structure
+
+See [AQI_Project_Plan.md](AQI_Project_Plan.md) for the full implementation plan and dataset details.

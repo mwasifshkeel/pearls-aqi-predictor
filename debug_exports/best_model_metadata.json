@@ -1,0 +1,10 @@
+{
+  "best_model_name": "extra_trees",
+  "best_model_type": "extra",
+  "best_window_days": 80,
+  "rmse": 0.6265828803141511,
+  "mae": 0.4454854166666667,
+  "r2": 0.0,
+  "rows_after_prep": 495,
+  "features_used": 186
+}

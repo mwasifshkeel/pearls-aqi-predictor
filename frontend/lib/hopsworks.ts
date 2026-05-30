@@ -1,0 +1,221 @@
+import { MongoClient } from "mongodb";
+
+import type {
+  CurrentAQI,
+  EdaSummary,
+  ModelMetric,
+  PredictionRow,
+  ShapSummary,
+} from "@/lib/types";
+
+type MongoDoc = Record<string, unknown>;
+
+const uri = process.env.MONGO_URI;
+const dbName = process.env.MONGO_DB_NAME ?? "aqi_predictor";
+
+if (!uri) {
+  throw new Error("MONGO_URI is required");
+}
+
+declare global {
+  // eslint-disable-next-line no-var
+  var _mongoClientPromise: Promise<MongoClient> | undefined;
+}
+
+const client = new MongoClient(uri);
+const clientPromise = global._mongoClientPromise ?? client.connect();
+if (!global._mongoClientPromise) {
+  global._mongoClientPromise = clientPromise;
+}
+
+async function getDb() {
+  const mongoClient = await clientPromise;
+  return mongoClient.db(dbName);
+}
+
+function toNumber(value: unknown, fallback = 0) {
+  if (typeof value === "number") {
+    return value;
+  }
+  if (typeof value === "string") {
+    const parsed = Number(value);
+    return Number.isFinite(parsed) ? parsed : fallback;
+  }
+  if (value && typeof value === "object" && "toString" in value) {
+    const parsed = Number(String(value));
+    return Number.isFinite(parsed) ? parsed : fallback;
+  }
+  return fallback;
+}
+
+function toIsoString(value: unknown) {
+  if (value instanceof Date) {
+    return value.toISOString();
+  }
+  if (typeof value === "string") {
+    return new Date(value).toISOString();
+  }
+  return new Date().toISOString();
+}
+
+function formatTimeAgo(value: unknown) {
+  if (!value) {
+    return "unknown";
+  }
+  const date = value instanceof Date ? value : new Date(String(value));
+  const deltaMs = Date.now() - date.getTime();
+  if (Number.isNaN(deltaMs)) {
+    return "unknown";
+  }
+  const minutes = Math.floor(deltaMs / 60000);
+  if (minutes < 1) {
+    return "just now";
+  }
+  if (minutes < 60) {
+    return `${minutes}m ago`;
+  }
+  const hours = Math.floor(minutes / 60);
+  if (hours < 24) {
+    return `${hours}h ago`;
+  }
+  const days = Math.floor(hours / 24);
+  return `${days}d ago`;
+}
+
+export async function fetchCurrent(): Promise<CurrentAQI> {
+  const db = await getDb();
+  const latest = await db
+    .collection("aqi_features_rawalpindi")
+    .find()
+    .sort({ timestamp: -1 })
+    .limit(1)
+    .next();
+
+  const modelMeta = await db
+    .collection("aqi_model_metadata_rawalpindi")
+    .findOne({ _id: "latest" });
+
+  const modelName = (modelMeta?.best_model_name as string | undefined) ??
+    (latest?.model_name as string | undefined) ??
+    "unavailable";
+
+  if (!latest) {
+    return {
+      timestamp: new Date().toISOString(),
+      european_aqi: 0,
+      pm2_5: 0,
+      pm10: 0,
+      wind_speed_10m: 0,
+      relative_humidity_2m: 0,
+      model_name: modelName,
+      updated_ago: "unknown",
+    };
+  }
+
+  return {
+    timestamp: toIsoString(latest.timestamp),
+    european_aqi: toNumber(latest.european_aqi),
+    pm2_5: toNumber(latest.pm2_5),
+    pm10: toNumber(latest.pm10),
+    wind_speed_10m: toNumber(latest.wind_speed_10m),
+    relative_humidity_2m: toNumber(latest.relative_humidity_2m),
+    model_name: modelName,
+    updated_ago: formatTimeAgo(latest.timestamp),
+  };
+}
+
+export async function fetchPredictions(): Promise<PredictionRow[]> {
+  const db = await getDb();
+  const predCollection = db.collection("aqi_predictions_rawalpindi");
+  const modelMeta = await db
+    .collection("aqi_model_metadata_rawalpindi")
+    .findOne({ _id: "latest" });
+
+  let modelName = modelMeta?.best_model_name as string | undefined;
+  if (!modelName) {
+    const latest = await predCollection
+      .find()
+      .sort({ timestamp: -1 })
+      .limit(1)
+      .next();
+    modelName = latest?.model_name as string | undefined;
+  }
+  if (!modelName) {
+    return [];
+  }
+
+  const rows = await predCollection
+    .find({ model_name: modelName })
+    .sort({ horizon_hours: 1 })
+    .limit(72)
+    .toArray();
+
+  return rows.map((row) => ({
+    timestamp: toIsoString(row.timestamp),
+    predicted_aqi: toNumber(row.predicted_aqi),
+    model_name: modelName as string,
+    horizon_hours: toNumber(row.horizon_hours),
+    confidence_lower: toNumber(row.confidence_lower),
+    confidence_upper: toNumber(row.confidence_upper),
+  }));
+}
+
+export async function fetchShapSummary(): Promise<ShapSummary> {
+  const db = await getDb();
+  const doc = await db
+    .collection("aqi_shap_summary_rawalpindi")
+    .findOne({ _id: "latest" });
+
+  if (!doc) {
+    return { features: [], importance: [] };
+  }
+
+  return {
+    features: (doc.features as string[]) ?? [],
+    importance: (doc.importance as number[]) ?? [],
+  };
+}
+
+export async function fetchModelMetrics(): Promise<ModelMetric[]> {
+  const db = await getDb();
+  const rows = await db
+    .collection("aqi_model_metrics_rawalpindi")
+    .find()
+    .sort({ rmse: 1 })
+    .toArray();
+
+  return rows.map((row) => ({
+    model_name: String(row.model_name ?? "unknown"),
+    rmse: toNumber(row.rmse),
+    mae: toNumber(row.mae),
+    r2: toNumber(row.r2),
+    rmse_24h: row.rmse_24h !== undefined ? toNumber(row.rmse_24h) : undefined,
+    rmse_48h: row.rmse_48h !== undefined ? toNumber(row.rmse_48h) : undefined,
+    rmse_72h: row.rmse_72h !== undefined ? toNumber(row.rmse_72h) : undefined,
+  }));
+}
+
+export async function fetchEdaSummary(): Promise<EdaSummary> {
+  const db = await getDb();
+  const doc = await db
+    .collection("aqi_eda_summary_rawalpindi")
+    .findOne({ _id: "latest" });
+
+  if (!doc) {
+    return {
+      distribution_note: "No EDA summary available yet.",
+      seasonality_note: "No seasonality summary available yet.",
+      hourly_heatmap: [],
+    };
+  }
+
+  return {
+    distribution_note: String(doc.distribution_note ?? ""),
+    seasonality_note: String(doc.seasonality_note ?? ""),
+    hourly_heatmap: (doc.hourly_heatmap as MongoDoc[])?.map((cell) => ({
+      day: toNumber(cell.day),
+      hour: toNumber(cell.hour),
+      value: toNumber(cell.value),
+    })) ?? [],
+  };
+}

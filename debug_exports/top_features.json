@@ -1,45 +1,45 @@
 {
   "features": [
-    "hour_sin",
-    "european_aqi_rolling_std_168h",
-    "is_day",
-    "european_aqi_rolling_min_168h",
-    "hour_of_day",
-    "day_of_week_sin",
-    "solar_radiation_category",
-    "hour_cos",
     "wind_speed_10m_rolling_std_168h",
-    "european_aqi_rolling_std_24h",
+    "hour_sin",
+    "is_day",
+    "hour_of_day",
+    "solar_radiation_category",
+    "european_aqi_rolling_std_168h",
     "day_of_week_cos",
+    "hour_cos",
+    "european_aqi_rolling_std_24h",
+    "european_aqi_rolling_min_168h",
     "pm10_rolling_mean_24h",
-    "relative_humidity_2m_rolling_min_24h",
-    "european_aqi_rolling_std_48h",
-    "relative_humidity_2m_rolling_mean_48h",
     "hour_traffic_weight",
-    "relative_humidity_2m_rolling_min_48h",
-    "relative_humidity_2m_rolling_mean_24h",
     "days_since_last_rain",
-    "wind_speed_10m_rolling_mean_168h",
+    "relative_humidity_2m_rolling_min_24h",
     "pm10_rolling_mean_48h",
-    "weekend_traffic_factor",
-    "pm10_rolling_mean_12h",
-    "precipitation_cumulative_72h",
-    "pm2_5_rolling_mean_168h",
-    "is_weekend",
-    "oxidant_index",
+    "european_aqi_rolling_std_48h",
     "day_of_week",
-    "relative_humidity_2m_rolling_std_24h",
-    "pm2_5_rolling_min_3h",
+    "pm10_rolling_mean_12h",
+    "pm10_rolling_std_168h",
+    "european_aqi_rolling_mean_3h",
+    "day_of_week_sin",
+    "european_aqi_rolling_min_3h",
     "pm2_5_rolling_mean_6h",
+    "precipitation_cumulative_72h",
     "nitrogen_dioxide_lag_6h",
-    "pm10_rolling_mean_168h",
     "pm10_rolling_std_24h",
+    "pm2_5_rolling_min_3h",
+    "is_evening_rush",
+    "pm2_5_rolling_min_6h",
     "pm2_5_rolling_mean_12h",
-    "pm10_rolling_min_24h",
-    "pollutant_composite_index",
+    "oxidant_index",
+    "european_aqi_rolling_std_12h",
+    "pressure_change_6h",
+    "nitrogen_dioxide_lag_1h",
     "pm2_5_rolling_mean_3h",
-    "wind_speed_10m_rolling_mean_24h",
-    "european_aqi_rolling_mean_168h"
+    "pm10_rolling_min_3h",
+    "relative_humidity_2m_rolling_std_24h",
+    "weekend_traffic_factor",
+    "european_aqi_lag_1h",
+    "wind_speed_10m_rolling_min_48h"
   ],
   "model_name": "extra_trees",
   "best_window_days": 80,
@@ -47,154 +47,154 @@
   "selection_rule": "permutation_importance_cumulative_share_0.95",
   "top_importances": [
     {
-      "feature": "hour_sin",
-      "importance": 0.36365669881260165,
-      "share": 0.09716623744552018,
-      "cumulative_share": 0.09716623744552018
+      "feature": "wind_speed_10m_rolling_std_168h",
+      "importance": 0.5533638527188451,
+      "share": 0.17589899464533987,
+      "cumulative_share": 0.17589899464533987
     },
     {
-      "feature": "european_aqi_rolling_std_168h",
-      "importance": 0.30391073278934755,
-      "share": 0.08120258067807244,
-      "cumulative_share": 0.17836881812359262
+      "feature": "hour_sin",
+      "importance": 0.37043297442308826,
+      "share": 0.11775035081232565,
+      "cumulative_share": 0.2936493454576655
     },
     {
       "feature": "is_day",
-      "importance": 0.29729640525535006,
-      "share": 0.07943528387917027,
-      "cumulative_share": 0.2578041020027629
-    },
-    {
-      "feature": "european_aqi_rolling_min_168h",
-      "importance": 0.25375724973018093,
-      "share": 0.06780196064396134,
-      "cumulative_share": 0.3256060626467242
+      "importance": 0.31335941811217294,
+      "share": 0.09960825293838857,
+      "cumulative_share": 0.3932575983960541
     },
     {
       "feature": "hour_of_day",
-      "importance": 0.24266869937102342,
-      "share": 0.06483918635534656,
-      "cumulative_share": 0.3904452490020708
-    },
-    {
-      "feature": "day_of_week_sin",
-      "importance": 0.21576835233795322,
-      "share": 0.05765162315159782,
-      "cumulative_share": 0.4480968721536686
+      "importance": 0.24919571107708477,
+      "share": 0.07921239313522842,
+      "cumulative_share": 0.47246999153128255
     },
     {
       "feature": "solar_radiation_category",
-      "importance": 0.1842418731205484,
-      "share": 0.04922799346056829,
-      "cumulative_share": 0.4973248656142369
+      "importance": 0.22228487285231324,
+      "share": 0.07065818532865932,
+      "cumulative_share": 0.5431281768599419
     },
     {
-      "feature": "hour_cos",
-      "importance": 0.17473066881718857,
-      "share": 0.04668667375230862,
-      "cumulative_share": 0.5440115393665456
-    },
-    {
-      "feature": "wind_speed_10m_rolling_std_168h",
-      "importance": 0.17126316345399778,
-      "share": 0.045760183327235956,
-      "cumulative_share": 0.5897717226937815
-    },
-    {
-      "feature": "european_aqi_rolling_std_24h",
-      "importance": 0.1490687280406476,
-      "share": 0.039830003054510794,
-      "cumulative_share": 0.6296017257482923
+      "feature": "european_aqi_rolling_std_168h",
+      "importance": 0.19475220862587647,
+      "share": 0.061906316312381936,
+      "cumulative_share": 0.6050344931723238
     },
     {
       "feature": "day_of_week_cos",
-      "importance": 0.14780114962110247,
-      "share": 0.03949131597382042,
-      "cumulative_share": 0.6690930417221127
+      "importance": 0.11071480337458794,
+      "share": 0.03519315999818519,
+      "cumulative_share": 0.640227653170509
+    },
+    {
+      "feature": "hour_cos",
+      "importance": 0.09764405121546105,
+      "share": 0.031038331032121558,
+      "cumulative_share": 0.6712659842026305
+    },
+    {
+      "feature": "european_aqi_rolling_std_24h",
+      "importance": 0.09049627238253208,
+      "share": 0.028766250728209382,
+      "cumulative_share": 0.7000322349308399
+    },
+    {
+      "feature": "european_aqi_rolling_min_168h",
+      "importance": 0.05870409815303575,
+      "share": 0.018660401824126382,
+      "cumulative_share": 0.7186926367549663
     },
     {
       "feature": "pm10_rolling_mean_24h",
-      "importance": 0.0729487876139153,
-      "share": 0.019491347861322256,
-      "cumulative_share": 0.6885843895834349
-    },
-    {
-      "feature": "relative_humidity_2m_rolling_min_24h",
-      "importance": 0.07097813766690955,
-      "share": 0.01896480554463188,
-      "cumulative_share": 0.7075491951280668
-    },
-    {
-      "feature": "european_aqi_rolling_std_48h",
-      "importance": 0.07095241747353782,
-      "share": 0.018957933309294368,
-      "cumulative_share": 0.7265071284373612
-    },
-    {
-      "feature": "relative_humidity_2m_rolling_mean_48h",
-      "importance": 0.05915616588309014,
-      "share": 0.015806066763876518,
-      "cumulative_share": 0.7423131952012377
+      "importance": 0.05656634779571519,
+      "share": 0.017980870378753035,
+      "cumulative_share": 0.7366735071337194
     },
     {
       "feature": "hour_traffic_weight",
-      "importance": 0.041862147218248325,
-      "share": 0.011185239677610707,
-      "cumulative_share": 0.7534984348788485
-    },
-    {
-      "feature": "relative_humidity_2m_rolling_min_48h",
-      "importance": 0.04049895128582328,
-      "share": 0.010821004342231842,
-      "cumulative_share": 0.7643194392210804
-    },
-    {
-      "feature": "relative_humidity_2m_rolling_mean_24h",
-      "importance": 0.03826042083078072,
-      "share": 0.010222886440282289,
-      "cumulative_share": 0.7745423256613626
+      "importance": 0.05076241698728197,
+      "share": 0.016135962025635102,
+      "cumulative_share": 0.7528094691593544
     },
     {
       "feature": "days_since_last_rain",
-      "importance": 0.0364213638133009,
-      "share": 0.009731504729400129,
-      "cumulative_share": 0.7842738303907627
+      "importance": 0.04781479201010939,
+      "share": 0.015198993939395498,
+      "cumulative_share": 0.7680084630987499
     },
     {
-      "feature": "wind_speed_10m_rolling_mean_168h",
-      "importance": 0.03245470018621468,
-      "share": 0.008671643104096799,
-      "cumulative_share": 0.7929454734948596
+      "feature": "relative_humidity_2m_rolling_min_24h",
+      "importance": 0.04147855113370582,
+      "share": 0.013184879004865481,
+      "cumulative_share": 0.7811933421036155
     },
     {
       "feature": "pm10_rolling_mean_48h",
-      "importance": 0.03154994759026621,
-      "share": 0.008429900257465829,
-      "cumulative_share": 0.8013753737523254
+      "importance": 0.0399338488136813,
+      "share": 0.012693861053866991,
+      "cumulative_share": 0.7938872031574824
     },
     {
-      "feature": "weekend_traffic_factor",
-      "importance": 0.03051001967290965,
-      "share": 0.008152039617818534,
-      "cumulative_share": 0.8095274133701439
+      "feature": "european_aqi_rolling_std_48h",
+      "importance": 0.03963175797722087,
+      "share": 0.012597834769960159,
+      "cumulative_share": 0.8064850379274425
+    },
+    {
+      "feature": "day_of_week",
+      "importance": 0.03280585744009912,
+      "share": 0.010428070633525246,
+      "cumulative_share": 0.8169131085609678
     },
     {
       "feature": "pm10_rolling_mean_12h",
-      "importance": 0.02647633961329987,
-      "share": 0.007074271723727641,
-      "cumulative_share": 0.8166016850938715
+      "importance": 0.02792198245675621,
+      "share": 0.008875622465249205,
+      "cumulative_share": 0.825788731026217
+    },
+    {
+      "feature": "pm10_rolling_std_168h",
+      "importance": 0.02542977055970539,
+      "share": 0.008083417544417257,
+      "cumulative_share": 0.8338721485706342
+    },
+    {
+      "feature": "european_aqi_rolling_mean_3h",
+      "importance": 0.024037101203029466,
+      "share": 0.007640726648528305,
+      "cumulative_share": 0.8415128752191625
+    },
+    {
+      "feature": "day_of_week_sin",
+      "importance": 0.022712274545282442,
+      "share": 0.007219601061751952,
+      "cumulative_share": 0.8487324762809144
+    },
+    {
+      "feature": "european_aqi_rolling_min_3h",
+      "importance": 0.018398820004752993,
+      "share": 0.005848473704228284,
+      "cumulative_share": 0.8545809499851427
+    },
+    {
+      "feature": "pm2_5_rolling_mean_6h",
+      "importance": 0.017077130169306544,
+      "share": 0.005428345226110801,
+      "cumulative_share": 0.8600092952112535
     },
     {
       "feature": "precipitation_cumulative_72h",
-      "importance": 0.025925600587899566,
-      "share": 0.006927118545779071,
-      "cumulative_share": 0.8235288036396506
+      "importance": 0.016723492154962827,
+      "share": 0.005315933526492541,
+      "cumulative_share": 0.865325228737746
     },
     {
-      "feature": "pm2_5_rolling_mean_168h",
-      "importance": 0.02591636456385622,
-      "share": 0.006924650752092942,
-      "cumulative_share": 0.8304534543917436
+      "feature": "nitrogen_dioxide_lag_6h",
+      "importance": 0.016682127244458656,
+      "share": 0.005302784770686522,
+      "cumulative_share": 0.8706280135084326
     }
   ]
 }

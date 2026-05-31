@@ -1,10 +1,10 @@
 {
-  "best_model_name": "extra_trees",
-  "best_model_type": "extra",
+  "best_model_name": "catboost",
+  "best_model_type": "cat",
   "best_window_days": 80,
-  "rmse": 0.6265828803141511,
-  "mae": 0.4454854166666667,
-  "r2": 0.0,
-  "rows_after_prep": 495,
-  "features_used": 186
+  "rmse": 11.059894047530033,
+  "mae": 7.950399985522243,
+  "r2": 0.6197487288129364,
+  "rows_after_prep": 1778,
+  "features_used": 40
 }

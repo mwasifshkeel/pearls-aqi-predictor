@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import json
 import os
 import sys
 from datetime import datetime, timezone
@@ -33,7 +32,7 @@ if PROJECT_ROOT is None:
 if PROJECT_ROOT and str(PROJECT_ROOT) not in sys.path:
     sys.path.insert(0, str(PROJECT_ROOT))
 
-from src.features import get_feature_catalog
+from src.features.feature_catalog import TOP_FEATURES
 from src.models.evaluate import evaluate_forecast, per_horizon_metrics
 from src.models.model_configs import MODEL_CONFIGS
 from src.models.registry import push_model
@@ -44,50 +43,6 @@ from src.utils.logger import get_logger
 
 
 logger = get_logger("training_pipeline")
-
-
-ARTIFACTS_DIR = os.getenv("EDA_ARTIFACTS_DIR", "debug_exports")
-
-
-def _load_top_features(default_features: List[str]) -> List[str]:
-    path = os.path.join(ARTIFACTS_DIR, "top_features.json")
-    if not os.path.exists(path):
-        return default_features
-    try:
-        with open(path, "r", encoding="utf-8") as handle:
-            payload = json.load(handle)
-        if isinstance(payload, dict) and "features" in payload:
-            return [f for f in payload["features"] if f in default_features]
-        if isinstance(payload, list):
-            return [f for f in payload if f in default_features]
-    except (OSError, json.JSONDecodeError):
-        return default_features
-    return default_features
-
-
-def _load_best_model_name(default_name: str | None = None) -> str | None:
-    path = os.path.join(ARTIFACTS_DIR, "best_model_name.txt")
-    if not os.path.exists(path):
-        return default_name
-    try:
-        with open(path, "r", encoding="utf-8") as handle:
-            model_name = handle.read().strip()
-        return model_name or default_name
-    except OSError:
-        return default_name
-
-
-def _load_best_window(default_days: int) -> int:
-    path = os.path.join(ARTIFACTS_DIR, "best_window_days.json")
-    if not os.path.exists(path):
-        return default_days
-    try:
-        with open(path, "r", encoding="utf-8") as handle:
-            payload = json.load(handle)
-        return int(payload.get("best_window_days", default_days))
-    except (OSError, json.JSONDecodeError, ValueError, TypeError):
-        return default_days
-
 
 def _coerce_bool(value: str | None) -> bool:
     return str(value or "").strip().lower() in {"1", "true", "yes", "y"}
@@ -222,20 +177,19 @@ def main() -> None:
                 logger.info("No new data since last training (%s); skipping.", last_trained)
                 return
 
-    default_features = [c for c in get_feature_catalog() if c in data.columns]
-    feature_columns = _load_top_features(default_features)
-    selected_model_name = _load_best_model_name()
-    model_configs = [config for config in MODEL_CONFIGS if config.name == selected_model_name] if selected_model_name else []
+    top_features = list(TOP_FEATURES)
+    if not top_features:
+        raise ValueError("No top features configured")
+    feature_columns = [feature for feature in top_features if feature in data.columns]
+    if not feature_columns:
+        raise ValueError("No top features available in dataset")
+    daily_model_names = {"catboost", "gradient_boosting", "extra_trees", "random_forest"}
+    model_configs = [config for config in MODEL_CONFIGS if config.name in daily_model_names]
     if not model_configs:
-        model_configs = MODEL_CONFIGS
+        raise ValueError("No matching model configs found for daily training list")
 
-    use_eda_window = _coerce_bool(os.getenv("USE_EDA_BEST_WINDOW", "false"))
-    if use_eda_window:
-        cutoff_days = _load_best_window(90)
-    else:
-        cutoff_days = int(os.getenv("TRAINING_WINDOW_DAYS", "90"))
-
-    logger.info("Training window days=%s (use_eda_window=%s)", cutoff_days, use_eda_window)
+    cutoff_days = 90  # Best window from EDA time-window study.
+    logger.info("Training window days=%s (source=eda)", cutoff_days)
 
     cutoff_time = data["timestamp"].max() - pd.Timedelta(days=cutoff_days)
     data = data[data["timestamp"] >= cutoff_time]

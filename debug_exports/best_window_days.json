@@ -1,5 +1,5 @@
 {
-  "best_window_days": 365,
+  "best_window_days": 90,
   "selection_metric": "median_rmse",
   "evaluated_windows": [
     7,

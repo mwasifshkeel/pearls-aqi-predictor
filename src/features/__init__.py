@@ -4,7 +4,7 @@ from .rolling_features import add_rolling_features
 from .weather_features import add_weather_features
 from .pollutant_features import add_pollutant_features
 from .spatial_features import add_spatial_features
-from .feature_catalog import get_feature_catalog
+from .feature_catalog import FEATURE_SOURCES, TOP_FEATURES, get_feature_catalog
 
 
 __all__ = [
@@ -15,4 +15,6 @@ __all__ = [
     "add_pollutant_features",
     "add_spatial_features",
     "get_feature_catalog",
+    "FEATURE_SOURCES",
+    "TOP_FEATURES",
 ]

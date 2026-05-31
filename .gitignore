@@ -53,5 +53,4 @@ frontend/.next/
 # Data outputs
 data/raw/*.json
 data/processed/
-models/
 artifacts/

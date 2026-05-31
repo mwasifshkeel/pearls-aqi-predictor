@@ -5,6 +5,58 @@ from typing import List
 from .lag_features import LAG_CONFIG
 from .rolling_features import ROLLING_BASE_VARS, ROLLING_WINDOWS
 
+FEATURE_SOURCES = {
+    "time_features": "src/features/time_features.py",
+    "lag_features": "src/features/lag_features.py",
+    "rolling_features": "src/features/rolling_features.py",
+    "weather_features": "src/features/weather_features.py",
+    "pollutant_features": "src/features/pollutant_features.py",
+    "spatial_features": "src/features/spatial_features.py",
+}
+
+TOP_FEATURES = [
+    "wind_speed_10m_rolling_std_168h",
+    "hour_sin",
+    "is_day",
+    "hour_of_day",
+    "solar_radiation_category",
+    "european_aqi_rolling_std_168h",
+    "day_of_week_cos",
+    "hour_cos",
+    "european_aqi_rolling_std_24h",
+    "european_aqi_rolling_min_168h",
+    "pm10_rolling_mean_24h",
+    "hour_traffic_weight",
+    "days_since_last_rain",
+    "relative_humidity_2m_rolling_min_24h",
+    "pm10_rolling_mean_48h",
+    "european_aqi_rolling_std_48h",
+    "day_of_week",
+    "pm10_rolling_mean_12h",
+    "pm10_rolling_std_168h",
+    "european_aqi_rolling_mean_3h",
+    "day_of_week_sin",
+    "european_aqi_rolling_min_3h",
+    "pm2_5_rolling_mean_6h",
+    "precipitation_cumulative_72h",
+    "nitrogen_dioxide_lag_6h",
+    "pm10_rolling_std_24h",
+    "pm2_5_rolling_min_3h",
+    "is_evening_rush",
+    "pm2_5_rolling_min_6h",
+    "pm2_5_rolling_mean_12h",
+    "oxidant_index",
+    "european_aqi_rolling_std_12h",
+    "pressure_change_6h",
+    "nitrogen_dioxide_lag_1h",
+    "pm2_5_rolling_mean_3h",
+    "pm10_rolling_min_3h",
+    "relative_humidity_2m_rolling_std_24h",
+    "weekend_traffic_factor",
+    "european_aqi_lag_1h",
+    "wind_speed_10m_rolling_min_48h",
+]
+
 
 def get_feature_catalog() -> List[str]:
     features = []

@@ -1,11 +1,12 @@
 from __future__ import annotations
 
-import json
 import os
+import re
 import sys
 from pathlib import Path
 
 import pandas as pd
+import numpy as np
 
 # Ensure the project root is on sys.path for `src` imports.
 _candidate_roots = [
@@ -32,15 +33,7 @@ if PROJECT_ROOT and str(PROJECT_ROOT) not in sys.path:
 
 from src.data.fetch_openmeteo import fetch_air_quality, fetch_weather
 from src.data.merge import merge_weather_aq
-from src.features import (
-    add_lag_features,
-    add_pollutant_features,
-    add_rolling_features,
-    add_spatial_features,
-    add_time_features,
-    add_weather_features,
-    get_feature_catalog,
-)
+from src.features.feature_catalog import TOP_FEATURES
 from src.utils.mongo_client import get_database
 from src.utils.logger import get_logger
 
@@ -48,33 +41,179 @@ from src.utils.logger import get_logger
 logger = get_logger("feature_pipeline")
 
 
-ARTIFACTS_DIR = os.getenv("EDA_ARTIFACTS_DIR", "debug_exports")
+ROLLING_RE = re.compile(r"(.+)_rolling_(mean|std|min)_(\d+)h$")
+LAG_RE = re.compile(r"(.+)_lag_(\d+)h$")
 
 
-def build_features(df: pd.DataFrame) -> pd.DataFrame:
-    df = add_time_features(df)
-    df = add_lag_features(df)
-    df = add_rolling_features(df)
-    df = add_weather_features(df)
-    df = add_pollutant_features(df)
-    df = add_spatial_features(df)
-    return df
+def _series_or_nan(frame: pd.DataFrame, column: str) -> pd.Series:
+    if column in frame:
+        return frame[column]
+    return pd.Series(np.nan, index=frame.index)
 
 
-def _load_top_features(default_features: list[str]) -> list[str]:
-    path = os.path.join(ARTIFACTS_DIR, "top_features.json")
-    if not os.path.exists(path):
-        return default_features
-    try:
-        with open(path, "r", encoding="utf-8") as handle:
-            payload = json.load(handle)
-        if isinstance(payload, dict) and "features" in payload:
-            return [f for f in payload["features"] if f in default_features]
-        if isinstance(payload, list):
-            return [f for f in payload if f in default_features]
-    except (OSError, json.JSONDecodeError):
-        return default_features
-    return default_features
+def _parse_rolling_features(features: set[str]) -> dict[str, dict[int, set[str]]]:
+    spec: dict[str, dict[int, set[str]]] = {}
+    for feature in features:
+        match = ROLLING_RE.match(feature)
+        if not match:
+            continue
+        base, stat, window = match.groups()
+        window_int = int(window)
+        spec.setdefault(base, {}).setdefault(window_int, set()).add(stat)
+    return spec
+
+
+def _parse_lag_features(features: set[str]) -> dict[str, set[int]]:
+    spec: dict[str, set[int]] = {}
+    for feature in features:
+        match = LAG_RE.match(feature)
+        if not match:
+            continue
+        base, lag = match.groups()
+        spec.setdefault(base, set()).add(int(lag))
+    return spec
+
+
+def build_features(df: pd.DataFrame, selected_features: list[str]) -> pd.DataFrame:
+    selected = set(selected_features)
+    rolling_spec = _parse_rolling_features(selected)
+    lag_spec = _parse_lag_features(selected)
+
+    base_cols = {"timestamp", "european_aqi"}
+    base_cols.update(rolling_spec.keys())
+    base_cols.update(lag_spec.keys())
+
+    if "solar_radiation_category" in selected or "is_day" in selected:
+        base_cols.add("shortwave_radiation")
+    if "precipitation_cumulative_72h" in selected or "days_since_last_rain" in selected:
+        base_cols.add("precipitation")
+    if "pressure_change_6h" in selected:
+        base_cols.add("surface_pressure")
+    if "oxidant_index" in selected:
+        base_cols.update({"ozone", "nitrogen_dioxide"})
+    if "is_day" in selected:
+        base_cols.add("is_day")
+
+    available_cols = [col for col in base_cols if col in df.columns]
+    out = df[available_cols].copy()
+    ts = pd.to_datetime(out["timestamp"], utc=True)
+
+    need_hour = any(
+        feature in selected
+        for feature in ["hour_of_day", "hour_sin", "hour_cos", "is_evening_rush", "hour_traffic_weight"]
+    )
+    need_day_of_week = any(
+        feature in selected
+        for feature in ["day_of_week", "day_of_week_sin", "day_of_week_cos", "weekend_traffic_factor"]
+    )
+
+    hour = ts.dt.hour if need_hour else None
+    day_of_week = ts.dt.dayofweek if need_day_of_week else None
+
+    if "hour_of_day" in selected:
+        out["hour_of_day"] = hour
+    if "day_of_week" in selected:
+        out["day_of_week"] = day_of_week
+    if "hour_sin" in selected:
+        out["hour_sin"] = np.sin(2 * np.pi * hour / 24)
+    if "hour_cos" in selected:
+        out["hour_cos"] = np.cos(2 * np.pi * hour / 24)
+    if "day_of_week_sin" in selected:
+        out["day_of_week_sin"] = np.sin(2 * np.pi * day_of_week / 7)
+    if "day_of_week_cos" in selected:
+        out["day_of_week_cos"] = np.cos(2 * np.pi * day_of_week / 7)
+    if "is_evening_rush" in selected:
+        out["is_evening_rush"] = hour.between(17, 19).astype(int)
+
+    if "days_since_last_rain" in selected:
+        if "precipitation" in out:
+            precip = out["precipitation"].fillna(0)
+            days_since = []
+            last_rain = None
+            for idx, value in enumerate(precip):
+                if value > 0:
+                    last_rain = idx
+                    days_since.append(0)
+                else:
+                    if last_rain is None:
+                        days_since.append(np.nan)
+                    else:
+                        hours_since = idx - last_rain
+                        days_since.append(hours_since / 24)
+            out["days_since_last_rain"] = days_since
+        else:
+            out["days_since_last_rain"] = np.nan
+
+    for base, windows in rolling_spec.items():
+        if base in out:
+            for window, stats in windows.items():
+                rolling = out[base].rolling(window=window, min_periods=1)
+                if "mean" in stats:
+                    out[f"{base}_rolling_mean_{window}h"] = rolling.mean()
+                if "std" in stats:
+                    out[f"{base}_rolling_std_{window}h"] = rolling.std()
+                if "min" in stats:
+                    out[f"{base}_rolling_min_{window}h"] = rolling.min()
+        else:
+            for window, stats in windows.items():
+                for stat in stats:
+                    out[f"{base}_rolling_{stat}_{window}h"] = np.nan
+
+    for base, lags in lag_spec.items():
+        if base in out:
+            for lag in lags:
+                out[f"{base}_lag_{lag}h"] = out[base].shift(lag)
+        else:
+            for lag in lags:
+                out[f"{base}_lag_{lag}h"] = np.nan
+
+    if "pressure_change_6h" in selected:
+        if "surface_pressure" in out:
+            out["pressure_change_6h"] = out["surface_pressure"].diff(6)
+        else:
+            out["pressure_change_6h"] = np.nan
+
+    if "precipitation_cumulative_72h" in selected:
+        if "precipitation" in out:
+            out["precipitation_cumulative_72h"] = out["precipitation"].rolling(window=72, min_periods=1).sum()
+        else:
+            out["precipitation_cumulative_72h"] = np.nan
+
+    if "solar_radiation_category" in selected:
+        if "shortwave_radiation" in out:
+            out["solar_radiation_category"] = pd.cut(
+                out["shortwave_radiation"],
+                bins=[-1, 100, 300, 600, 2000],
+                labels=[0, 1, 2, 3],
+            ).astype(float)
+        else:
+            out["solar_radiation_category"] = np.nan
+
+    if "oxidant_index" in selected:
+        out["oxidant_index"] = _series_or_nan(out, "ozone") + _series_or_nan(out, "nitrogen_dioxide")
+
+    if "weekend_traffic_factor" in selected:
+        out["weekend_traffic_factor"] = np.where(day_of_week >= 5, 0.6, 1.0)
+
+    if "hour_traffic_weight" in selected:
+        traffic_weight = np.select(
+            [hour.between(7, 9), hour.between(17, 19)], [1.0, 1.0], default=0.7
+        )
+        traffic_weight = np.where(hour.between(0, 5), 0.3, traffic_weight)
+        out["hour_traffic_weight"] = traffic_weight
+
+    if "is_day" in selected:
+        if "is_day" not in out:
+            if "shortwave_radiation" in out:
+                out["is_day"] = out["shortwave_radiation"].fillna(0).gt(0).astype(int)
+            else:
+                out["is_day"] = ts.dt.hour.between(6, 18).astype(int)
+        else:
+            if out["is_day"].isna().any():
+                fallback = ts.dt.hour.between(6, 18).astype(int)
+                out["is_day"] = out["is_day"].fillna(fallback)
+
+    return out
 
 
 def _get_fetch_window(collection) -> tuple[str, str, pd.Timestamp | None]:
@@ -142,11 +281,12 @@ def main() -> None:
         logger.info("No new data found after %s", latest_ts)
         return
     logger.info("Merged forecast rows=%s", len(merged))
-    features = build_features(merged)
-    features = features.drop_duplicates(subset=["timestamp"]).sort_values("timestamp").reset_index(drop=True)
 
-    default_features = [c for c in get_feature_catalog() if c in features.columns]
-    top_features = _load_top_features(default_features)
+    top_features = list(TOP_FEATURES)
+    if not top_features:
+        raise ValueError("No top features configured")
+    features = build_features(merged, top_features)
+    features = features.drop_duplicates(subset=["timestamp"]).sort_values("timestamp").reset_index(drop=True)
     keep_cols = ["timestamp", "european_aqi"] + top_features
     keep_cols = [c for c in keep_cols if c in features.columns]
     features = features[keep_cols]

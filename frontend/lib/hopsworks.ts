@@ -92,7 +92,9 @@ export async function fetchCurrent(): Promise<CurrentAQI> {
     .next();
 
   const modelMeta = await db
-    .collection("aqi_model_metadata_rawalpindi")
+    .collection<{ _id: string; best_model_name?: string }>(
+      "aqi_model_metadata_rawalpindi"
+    )
     .findOne({ _id: "latest" });
 
   const modelName = (modelMeta?.best_model_name as string | undefined) ??
@@ -128,7 +130,9 @@ export async function fetchPredictions(): Promise<PredictionRow[]> {
   const db = await getDb();
   const predCollection = db.collection("aqi_predictions_rawalpindi");
   const modelMeta = await db
-    .collection("aqi_model_metadata_rawalpindi")
+    .collection<{ _id: string; best_model_name?: string }>(
+      "aqi_model_metadata_rawalpindi"
+    )
     .findOne({ _id: "latest" });
 
   let modelName = modelMeta?.best_model_name as string | undefined;
@@ -163,7 +167,9 @@ export async function fetchPredictions(): Promise<PredictionRow[]> {
 export async function fetchShapSummary(): Promise<ShapSummary> {
   const db = await getDb();
   const doc = await db
-    .collection("aqi_shap_summary_rawalpindi")
+    .collection<{ _id: string; features?: string[]; importance?: number[] }>(
+      "aqi_shap_summary_rawalpindi"
+    )
     .findOne({ _id: "latest" });
 
   if (!doc) {
@@ -198,7 +204,12 @@ export async function fetchModelMetrics(): Promise<ModelMetric[]> {
 export async function fetchEdaSummary(): Promise<EdaSummary> {
   const db = await getDb();
   const doc = await db
-    .collection("aqi_eda_summary_rawalpindi")
+    .collection<{
+      _id: string;
+      distribution_note?: string;
+      seasonality_note?: string;
+      hourly_heatmap?: MongoDoc[];
+    }>("aqi_eda_summary_rawalpindi")
     .findOne({ _id: "latest" });
 
   if (!doc) {

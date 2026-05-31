@@ -5,5 +5,6 @@
       "src": "frontend/package.json",
       "use": "@vercel/next"
     }
-  ]
+  ],
+  "outputDirectory": "frontend/.next"
 }

@@ -212,6 +212,16 @@ def main() -> None:
     data["timestamp"] = pd.to_datetime(data["timestamp"], utc=True, errors="coerce")
     data = data.dropna(subset=["timestamp"]).sort_values("timestamp").reset_index(drop=True)
 
+    only_if_new = _coerce_bool(os.getenv("TRAIN_ONLY_IF_NEW_DATA", "true"))
+    if only_if_new:
+        meta = db["aqi_model_metadata_rawalpindi"].find_one({"_id": "latest"})
+        if meta and meta.get("updated_at"):
+            last_trained = pd.to_datetime(meta.get("updated_at"), utc=True, errors="coerce")
+            latest_data = data["timestamp"].max()
+            if pd.notna(last_trained) and latest_data <= last_trained:
+                logger.info("No new data since last training (%s); skipping.", last_trained)
+                return
+
     default_features = [c for c in get_feature_catalog() if c in data.columns]
     feature_columns = _load_top_features(default_features)
     selected_model_name = _load_best_model_name()

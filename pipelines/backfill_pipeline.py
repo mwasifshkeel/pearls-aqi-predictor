@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import os
 import sys
+import datetime as dt
 from pathlib import Path
 
 # Ensure repo root is on sys.path when running as a script
@@ -21,7 +22,6 @@ from src.features import (
 )
 from src.utils.mongo_client import get_database
 from src.utils.logger import get_logger
-import traceback
 
 
 logger = get_logger("backfill_pipeline")
@@ -30,8 +30,18 @@ logger = get_logger("backfill_pipeline")
 def main() -> None:
     lat = float(os.getenv("RAWALPINDI_LAT", "33.6007"))
     lon = float(os.getenv("RAWALPINDI_LON", "73.0679"))
-    start_date = os.getenv("BACKFILL_START_DATE", "2024-05-01")
-    end_date = os.getenv("BACKFILL_END_DATE", "2025-05-01")
+    today = dt.date.today()
+    start_date = os.getenv("BACKFILL_START_DATE", (today - dt.timedelta(days=365)).isoformat())
+    end_date = os.getenv("BACKFILL_END_DATE", today.isoformat())
+
+    start_value = dt.date.fromisoformat(start_date)
+    end_value = dt.date.fromisoformat(end_date)
+    if end_value > today:
+        end_value = today
+        end_date = end_value.isoformat()
+    if start_value > end_value:
+        start_value = end_value - dt.timedelta(days=365)
+        start_date = start_value.isoformat()
 
     weather = fetch_weather(lat, lon, start_date=start_date, end_date=end_date)
     air_quality = fetch_air_quality(lat, lon, start_date=start_date, end_date=end_date)
@@ -75,6 +85,17 @@ def main() -> None:
     
     # Create unique index on timestamp
     collection.create_index("timestamp", unique=True)
+
+    # Clean up future rows and (optionally) data older than the backfill window.
+    cutoff_end = dt.datetime.combine(end_value, dt.time.max, tzinfo=dt.timezone.utc)
+    cutoff_start = dt.datetime.combine(start_value, dt.time.min, tzinfo=dt.timezone.utc)
+    delete_future = collection.delete_many({"timestamp": {"$gt": cutoff_end}})
+    logger.info("Deleted future rows: %s", delete_future.deleted_count)
+
+    clean_old = os.getenv("CLEAN_OLD_DATA", "true").strip().lower() in {"1", "true", "yes", "y"}
+    if clean_old:
+        delete_old = collection.delete_many({"timestamp": {"$lt": cutoff_start}})
+        logger.info("Deleted old rows before %s: %s", cutoff_start.isoformat(), delete_old.deleted_count)
     
     # Upsert records using batched bulk_write for performance
     from pymongo import UpdateOne

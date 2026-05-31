@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 import os
 import sys
 from pathlib import Path
@@ -29,7 +30,7 @@ if PROJECT_ROOT is None:
 if PROJECT_ROOT and str(PROJECT_ROOT) not in sys.path:
     sys.path.insert(0, str(PROJECT_ROOT))
 
-from src.data.fetch_openmeteo import fetch_air_quality, fetch_forecast, fetch_weather
+from src.data.fetch_openmeteo import fetch_air_quality, fetch_weather
 from src.data.merge import merge_weather_aq
 from src.features import (
     add_lag_features,
@@ -47,6 +48,9 @@ from src.utils.logger import get_logger
 logger = get_logger("feature_pipeline")
 
 
+ARTIFACTS_DIR = os.getenv("EDA_ARTIFACTS_DIR", "debug_exports")
+
+
 def build_features(df: pd.DataFrame) -> pd.DataFrame:
     df = add_time_features(df)
     df = add_lag_features(df)
@@ -57,22 +61,39 @@ def build_features(df: pd.DataFrame) -> pd.DataFrame:
     return df
 
 
-def _get_fetch_window(collection) -> tuple[str, str, str | None]:
+def _load_top_features(default_features: list[str]) -> list[str]:
+    path = os.path.join(ARTIFACTS_DIR, "top_features.json")
+    if not os.path.exists(path):
+        return default_features
+    try:
+        with open(path, "r", encoding="utf-8") as handle:
+            payload = json.load(handle)
+        if isinstance(payload, dict) and "features" in payload:
+            return [f for f in payload["features"] if f in default_features]
+        if isinstance(payload, list):
+            return [f for f in payload if f in default_features]
+    except (OSError, json.JSONDecodeError):
+        return default_features
+    return default_features
+
+
+def _get_fetch_window(collection) -> tuple[str, str, pd.Timestamp | None]:
     cursor = collection.find().sort("timestamp", -1).limit(1)
     latest = next(cursor, None)
     today = pd.Timestamp.utcnow().date()
-    end_date = (today + pd.Timedelta(days=3)).isoformat()
+    end_date = today
     if not latest or "timestamp" not in latest:
-        start_date = (today - pd.Timedelta(days=7)).isoformat()
-        return start_date, end_date, None
+        start_date = (today - pd.Timedelta(days=365)).isoformat()
+        return start_date, end_date.isoformat(), None
 
     latest_ts = pd.to_datetime(latest["timestamp"], utc=True, errors="coerce")
     if pd.isna(latest_ts):
-        start_date = (today - pd.Timedelta(days=7)).isoformat()
-        return start_date, end_date, None
+        start_date = (today - pd.Timedelta(days=365)).isoformat()
+        return start_date, end_date.isoformat(), None
 
-    start_date = (latest_ts - pd.Timedelta(days=1)).date().isoformat()
-    return start_date, end_date, latest_ts.isoformat()
+    latest_date = min(latest_ts.date(), today)
+    start_date = latest_date
+    return start_date.isoformat(), end_date.isoformat(), latest_ts
 
 
 def main() -> None:
@@ -86,20 +107,17 @@ def main() -> None:
     start_date, end_date, latest_ts = _get_fetch_window(collection)
     logger.info("Fetching window start=%s end=%s latest=%s", start_date, end_date, latest_ts or "none")
 
-    today_date = pd.Timestamp.utcnow().date()
     start_date_value = pd.to_datetime(start_date).date()
-    if start_date_value <= today_date:
-        weather_archive = fetch_weather(
+    if start_date_value <= pd.Timestamp.utcnow().date():
+        weather = fetch_weather(
             lat,
             lon,
             start_date=start_date,
-            end_date=today_date.isoformat(),
+            end_date=end_date,
         )
     else:
-        weather_archive = pd.DataFrame()
+        weather = pd.DataFrame()
 
-    weather_forecast = fetch_forecast(lat, lon, forecast_days=3, past_hours=0)
-    weather = pd.concat([weather_archive, weather_forecast], ignore_index=True)
     weather = weather.drop_duplicates(subset=["timestamp"]).sort_values("timestamp").reset_index(drop=True)
 
     air_quality = fetch_air_quality(lat, lon, start_date=start_date, end_date=end_date)
@@ -118,9 +136,20 @@ def main() -> None:
     )
 
     merged = merge_weather_aq(weather, air_quality)
+    if latest_ts is not None:
+        merged = merged[merged["timestamp"] > latest_ts]
+    if merged.empty:
+        logger.info("No new data found after %s", latest_ts)
+        return
     logger.info("Merged forecast rows=%s", len(merged))
     features = build_features(merged)
     features = features.drop_duplicates(subset=["timestamp"]).sort_values("timestamp").reset_index(drop=True)
+
+    default_features = [c for c in get_feature_catalog() if c in features.columns]
+    top_features = _load_top_features(default_features)
+    keep_cols = ["timestamp", "european_aqi"] + top_features
+    keep_cols = [c for c in keep_cols if c in features.columns]
+    features = features[keep_cols]
     
     # Ensure no all-null columns
     for column in features.columns:

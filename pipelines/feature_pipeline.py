@@ -245,6 +245,8 @@ def main() -> None:
 
     start_date, end_date, latest_ts = _get_fetch_window(collection)
     logger.info("Fetching window start=%s end=%s latest=%s", start_date, end_date, latest_ts or "none")
+    cutoff_ts = pd.Timestamp.utcnow().floor("H")
+    logger.info("Applying fetch cutoff at %s", cutoff_ts)
 
     start_date_value = pd.to_datetime(start_date).date()
     if start_date_value <= pd.Timestamp.utcnow().date():
@@ -258,8 +260,12 @@ def main() -> None:
         weather = pd.DataFrame()
 
     weather = weather.drop_duplicates(subset=["timestamp"]).sort_values("timestamp").reset_index(drop=True)
+    if not weather.empty:
+        weather = weather[weather["timestamp"] <= cutoff_ts]
 
     air_quality = fetch_air_quality(lat, lon, start_date=start_date, end_date=end_date)
+    if not air_quality.empty:
+        air_quality = air_quality[air_quality["timestamp"] <= cutoff_ts]
 
     logger.info(
         "Fetched forecast weather rows=%s range=%s..%s",
@@ -275,6 +281,11 @@ def main() -> None:
     )
 
     merged = merge_weather_aq(weather, air_quality)
+    if not merged.empty:
+        merged = merged[merged["timestamp"] <= cutoff_ts]
+    if latest_ts is not None and latest_ts >= cutoff_ts:
+        logger.info("Latest timestamp %s is beyond cutoff; refreshing current-day data", latest_ts)
+        latest_ts = None
     if latest_ts is not None:
         merged = merged[merged["timestamp"] > latest_ts]
     if merged.empty:

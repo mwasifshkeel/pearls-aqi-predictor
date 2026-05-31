@@ -11,10 +11,25 @@ import numpy as np
 import pandas as pd
 
 # Ensure the project root is on sys.path for `src` imports.
-PROJECT_ROOT = next(
-    (parent for parent in Path(__file__).resolve().parents if (parent / "src").is_dir()),
-    None,
-)
+_candidate_roots = [
+    os.getenv("PROJECT_ROOT"),
+    os.getenv("GITHUB_WORKSPACE"),
+]
+
+PROJECT_ROOT = None
+for candidate in _candidate_roots:
+    if candidate:
+        resolved = Path(candidate).resolve()
+        if (resolved / "src").is_dir():
+            PROJECT_ROOT = resolved
+            break
+
+if PROJECT_ROOT is None:
+    PROJECT_ROOT = next(
+        (parent for parent in Path(__file__).resolve().parents if (parent / "src").is_dir()),
+        None,
+    )
+
 if PROJECT_ROOT and str(PROJECT_ROOT) not in sys.path:
     sys.path.insert(0, str(PROJECT_ROOT))
 
@@ -215,10 +230,17 @@ def main() -> None:
     cutoff_time = data["timestamp"].max() - pd.Timedelta(days=cutoff_days)
     data = data[data["timestamp"] >= cutoff_time]
 
+    if not feature_columns:
+        raise ValueError("No feature columns available for training")
+
     target = data["european_aqi"].astype(float)
     X = data[feature_columns].astype(float).ffill().fillna(0)
 
     horizon = 72
+    if len(target) <= horizon:
+        logger.warning("Not enough data to train: rows=%s horizon=%s", len(target), horizon)
+        return
+
     X_model = X.iloc[:-horizon]
     y_model = pd.DataFrame(
         [target.iloc[i : i + horizon].values for i in range(len(target) - horizon)]

@@ -167,7 +167,7 @@ async function fetchDagsHubLatestModel(
 
 export async function fetchCurrent(): Promise<CurrentAQI> {
   const db = await getDb();
-  const baseCollection = db.collection("aqi_features_live_rawalpindi");
+  const baseCollection = db.collection("aqi_features_rawalpindi");
   const now = new Date();
   const latest = await baseCollection
     .find({

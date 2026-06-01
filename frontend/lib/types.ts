@@ -49,6 +49,9 @@ export type RegistryModelSummary = {
     rmse_24h?: number;
     rmse_48h?: number;
     rmse_72h?: number;
+    r2_24h?: number;
+    r2_48h?: number;
+    r2_72h?: number;
   };
   updated_at?: string;
 };

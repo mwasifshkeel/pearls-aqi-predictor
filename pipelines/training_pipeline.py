@@ -310,7 +310,8 @@ def main() -> None:
                 upsert=True,
             )
 
-    if best_model is not None and best_type in {"lgbm", "xgb", "cat", "rf", "extra", "gbr"}:
+    if best_model is not None and best_type in {"lightgbm", "xgboost", "catboost", "random_forest", "extra_trees", "gradient_boosting"}:
+:
         shap_payload = compute_shap_summary(best_model, X_model.sample(200), feature_columns)
         shap_path = os.path.join(artifacts_dir, "shap_summary.json")
         save_shap_json(shap_payload, shap_path)

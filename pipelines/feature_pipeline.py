@@ -7,6 +7,7 @@ from pathlib import Path
 
 import pandas as pd
 import numpy as np
+from pymongo import UpdateOne
 
 # Ensure the project root is on sys.path for `src` imports.
 _candidate_roots = [
@@ -317,13 +318,19 @@ def main() -> None:
     numeric_cols = features.select_dtypes(include=["number"]).columns
     features[numeric_cols] = features[numeric_cols].astype(float).fillna(0)
 
+    logger.info("Doing bulk upsert of features into MongoDB collection %s", collection_name)
     records = features.to_dict('records')
-    for record in records:
-        collection.update_one(
-            {"timestamp": record["timestamp"]},
-            {"$set": record},
+    ops = [
+        UpdateOne(
+            {"timestamp": r["timestamp"].to_pydatetime()},
+            {"$set": r},
             upsert=True
         )
+        for r in records
+    ]
+
+    if ops:
+        collection.bulk_write(ops, ordered=False)
 
     logger.info("Feature pipeline complete: %s rows", len(features))
 

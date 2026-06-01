@@ -5,6 +5,8 @@ import os
 import time
 from pathlib import Path
 from typing import Any, Dict, Iterable, Optional
+import mlflow
+import mlflow.sklearn
 
 import joblib
 import requests
@@ -106,87 +108,6 @@ def _get_or_create_experiment(session: requests.Session, base_url: str, name: st
     return str(created["experiment_id"])
 
 
-def _create_run(session: requests.Session, base_url: str, experiment_id: str, tags: Dict[str, str], timeout: int) -> str:
-    tag_list = [{"key": key, "value": value} for key, value in tags.items() if value]
-    payload = {"experiment_id": experiment_id, "tags": tag_list}
-    response = _post_json(session, base_url, "/api/2.0/mlflow/runs/create", payload, timeout)
-    return str(response["run"]["info"]["run_id"])
-
-
-def _log_batch(
-    session: requests.Session,
-    base_url: str,
-    run_id: str,
-    metrics: Dict[str, Any],
-    params: Dict[str, Any],
-    tags: Dict[str, str],
-    timeout: int,
-) -> None:
-    timestamp = int(time.time() * 1000)
-    metrics_payload = []
-    for key, value in metrics.items():
-        coerced = _coerce_float(value)
-        if coerced is None:
-            continue
-        metrics_payload.append({"key": key, "value": coerced, "timestamp": timestamp, "step": 0})
-
-    params_payload = [
-        {"key": key, "value": str(value)}
-        for key, value in params.items()
-        if value is not None
-    ]
-
-    tags_payload = [
-        {"key": key, "value": value}
-        for key, value in tags.items()
-        if value is not None
-    ]
-
-    payload = {"run_id": run_id, "metrics": metrics_payload, "params": params_payload, "tags": tags_payload}
-    _post_json(session, base_url, "/api/2.0/mlflow/runs/log-batch", payload, timeout)
-
-
-def _log_artifact(
-    session: requests.Session,
-    base_url: str,
-    run_id: str,
-    file_path: Path,
-    artifact_path: str,
-    timeout: int,
-) -> None:
-    endpoints = [
-        "/api/2.0/mlflow/artifacts/log",
-        "/api/2.0/mlflow/runs/log-artifact",
-    ]
-    last_error = None
-    for path in endpoints:
-        with file_path.open("rb") as handle:
-            response = session.post(
-                f"{base_url}{path}",
-                data={"run_id": run_id, "path": artifact_path},
-                files={"file": (file_path.name, handle)},
-                timeout=timeout,
-            )
-        if response.ok:
-            return
-        last_error = response
-        if response.status_code not in {400, 404}:
-            break
-        if "unsupported endpoint" not in response.text.lower():
-            break
-
-    if last_error is None:
-        raise RuntimeError("DagsHub REST error: log-artifact failed with no response")
-    raise RuntimeError(
-        f"DagsHub REST error {last_error.status_code} log-artifact: {last_error.text}"
-    )
-
-
-def _iter_artifacts(root: Path) -> Iterable[Path]:
-    for path in sorted(root.rglob("*")):
-        if path.is_file():
-            yield path
-
 
 def _register_model(session: requests.Session, base_url: str, name: str, timeout: int) -> None:
     response = session.post(
@@ -245,6 +166,11 @@ def push_model(
     base_url = config["tracking_uri"]
     session = _session(config)
 
+    # Configure MLflow to use DagsHub
+    mlflow.set_tracking_uri(base_url)
+    os.environ["MLFLOW_TRACKING_USERNAME"] = config["username"]
+    os.environ["MLFLOW_TRACKING_PASSWORD"] = config["token"]
+
     experiment_id = _get_or_create_experiment(session, base_url, config["experiment_name"], timeout)
     tags = {
         "source": "training_pipeline",
@@ -254,32 +180,35 @@ def push_model(
     if metadata and metadata.get("model_type"):
         tags["model_type"] = str(metadata.get("model_type"))
 
-    run_id = _create_run(session, base_url, experiment_id, tags, timeout)
-    params = metadata or {}
-    _log_batch(session, base_url, run_id, metrics, params, tags, timeout)
+    # Use MLflow SDK for the run — handles artifact storage correctly
+    mlflow.set_experiment(config["experiment_name"])
+    with mlflow.start_run(tags=tags) as run:
+        run_id = run.info.run_id
 
-    artifact_root = Path(artifacts_path)
-    artifact_root.mkdir(parents=True, exist_ok=True)
-    model_path = artifact_root / _MODEL_FILENAME
-    joblib.dump(model, model_path)
+        # Log metrics
+        for key, value in metrics.items():
+            coerced = _coerce_float(value)
+            if coerced is not None:
+                mlflow.log_metric(key, coerced)
 
-    for artifact in _iter_artifacts(artifact_root):
-        rel_path = artifact.relative_to(artifact_root)
-        artifact_dir = rel_path.parent.as_posix()
-        if artifact_dir == ".":
-            artifact_dir = ""
-        _log_artifact(session, base_url, run_id, artifact, artifact_dir, timeout)
+        # Log params
+        for key, value in (metadata or {}).items():
+            if value is not None:
+                mlflow.log_param(key, str(value))
 
-    _register_model(session, base_url, name, timeout)
-    version = _create_model_version(
-        session,
-        base_url,
-        name,
-        run_id,
-        f"runs:/{run_id}/{_MODEL_FILENAME}",
-        timeout,
-    )
-    _transition_stage(session, base_url, name, version, config["stage"], timeout)
+        # Serialize model and log all artifacts from the artifacts dir
+        artifact_root = Path(artifacts_path)
+        artifact_root.mkdir(parents=True, exist_ok=True)
+        model_path = artifact_root / _MODEL_FILENAME
+        joblib.dump(model, model_path)
+        mlflow.log_artifacts(str(artifact_root))  # uploads everything including model.pkl
+
+        # Register model
+        model_uri = f"runs:/{run_id}/{_MODEL_FILENAME}"
+        _register_model(session, base_url, name, timeout)
+        version = _create_model_version(session, base_url, name, run_id, model_uri, timeout)
+        _transition_stage(session, base_url, name, version, config["stage"], timeout)
+
     return {
         "run_id": run_id,
         "version": version,

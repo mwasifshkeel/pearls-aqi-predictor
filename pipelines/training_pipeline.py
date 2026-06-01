@@ -197,7 +197,7 @@ def main() -> None:
     feature_columns = [feature for feature in top_features if feature in data.columns]
     if not feature_columns:
         raise ValueError("No top features available in dataset")
-    daily_model_names = {"catboost", "gradient_boosting", "extra_trees", "random_forest"}
+    daily_model_names = {"catboost", "gradient_boosting", "extra_trees", "random_forest", "lightgbm", "xgboost"}
     model_configs = [config for config in MODEL_CONFIGS if config.name in daily_model_names]
     if not model_configs:
         raise ValueError("No matching model configs found for daily training list")
@@ -221,7 +221,7 @@ def main() -> None:
 
     X_model = X.iloc[:-horizon]
     y_model = pd.DataFrame(
-        [target.iloc[i : i + horizon].values for i in range(len(target) - horizon)]
+        [target.iloc[i + 1 : i + 1 + horizon].values for i in range(len(target) - horizon)]
     )
 
     metrics_table = []

@@ -69,7 +69,7 @@ export default async function ModelsPage() {
           )}
         </div>
         <div className="card">
-          <h2 className="section-title">Latest Metrics</h2>
+         tsx          <h2 className="section-title">Latest Metrics</h2>
           {summary ? (
             <div style={{ display: "grid", gap: 12 }}>
               <div>
@@ -81,20 +81,28 @@ export default async function ModelsPage() {
                 <div>{summary.metrics.mae?.toFixed(2) ?? "-"}</div>
               </div>
               <div>
-                <strong>R2</strong>
-                <div>{summary.metrics.r2?.toFixed(2) ?? "-"}</div>
-              </div>
-              <div>
                 <strong>RMSE 24h</strong>
                 <div>{summary.metrics.rmse_24h?.toFixed(2) ?? "-"}</div>
+              </div>
+              <div>
+                <strong>R² 24h</strong>
+                <div>{summary.metrics.r2_24h?.toFixed(3) ?? "-"}</div>
               </div>
               <div>
                 <strong>RMSE 48h</strong>
                 <div>{summary.metrics.rmse_48h?.toFixed(2) ?? "-"}</div>
               </div>
               <div>
+                <strong>R² 48h</strong>
+                <div>{summary.metrics.r2_48h?.toFixed(3) ?? "-"}</div>
+              </div>
+              <div>
                 <strong>RMSE 72h</strong>
                 <div>{summary.metrics.rmse_72h?.toFixed(2) ?? "-"}</div>
+              </div>
+              <div>
+                <strong>R² 72h</strong>
+                <div>{summary.metrics.r2_72h?.toFixed(3) ?? "-"}</div>
               </div>
             </div>
           ) : (

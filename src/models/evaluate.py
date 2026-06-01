@@ -19,4 +19,5 @@ def per_horizon_metrics(y_true: np.ndarray, y_pred: np.ndarray) -> Dict[str, flo
     for idx in [23, 47, 71]:
         if idx < horizons:
             metrics[f"rmse_{idx+1}h"] = float(np.sqrt(mean_squared_error(y_true[:, idx], y_pred[:, idx])))
+            metrics[f"r2_{idx+1}h"] = float(r2_score(y_true[:, idx], y_pred[:, idx]))
     return metrics

@@ -101,6 +101,14 @@ function toNumber(value: unknown, fallback = 0) {
   return fallback;
 }
 
+function toOptionalNumber(value: unknown) {
+  if (value === null || value === undefined) {
+    return undefined;
+  }
+  const parsed = toNumber(value, Number.NaN);
+  return Number.isFinite(parsed) ? parsed : undefined;
+}
+
 function toIsoString(value: unknown) {
   if (value instanceof Date) {
     return value.toISOString();
@@ -137,12 +145,25 @@ function formatTimeAgo(value: unknown) {
 
 export async function fetchCurrent(): Promise<CurrentAQI> {
   const db = await getDb();
-  const latest = await db
-    .collection("aqi_features_rawalpindi")
-    .find()
+  const baseCollection = db.collection("aqi_features_rawalpindi");
+  const latest = await baseCollection
+    .find({
+      european_aqi: { $exists: true },
+      pm2_5: { $exists: true },
+      pm10: { $exists: true },
+      wind_speed_10m: { $exists: true },
+      relative_humidity_2m: { $exists: true },
+    })
     .sort({ timestamp: -1 })
     .limit(1)
     .next();
+  const fallback =
+    latest ??
+    (await baseCollection
+      .find()
+      .sort({ timestamp: -1 })
+      .limit(1)
+      .next());
 
   const modelMeta = await db
     .collection<{ _id: string; best_model_name?: string }>(
@@ -151,10 +172,10 @@ export async function fetchCurrent(): Promise<CurrentAQI> {
     .findOne({ _id: "latest" });
 
   const modelName = (modelMeta?.best_model_name as string | undefined) ??
-    (latest?.model_name as string | undefined) ??
+    (fallback?.model_name as string | undefined) ??
     "unavailable";
 
-  if (!latest) {
+  if (!fallback) {
     return {
       timestamp: new Date().toISOString(),
       european_aqi: 0,
@@ -168,14 +189,14 @@ export async function fetchCurrent(): Promise<CurrentAQI> {
   }
 
   return {
-    timestamp: toIsoString(latest.timestamp),
-    european_aqi: toNumber(latest.european_aqi),
-    pm2_5: toNumber(latest.pm2_5),
-    pm10: toNumber(latest.pm10),
-    wind_speed_10m: toNumber(latest.wind_speed_10m),
-    relative_humidity_2m: toNumber(latest.relative_humidity_2m),
+    timestamp: toIsoString(fallback.timestamp),
+    european_aqi: toNumber(fallback.european_aqi),
+    pm2_5: toNumber(fallback.pm2_5),
+    pm10: toNumber(fallback.pm10),
+    wind_speed_10m: toNumber(fallback.wind_speed_10m),
+    relative_humidity_2m: toNumber(fallback.relative_humidity_2m),
     model_name: modelName,
-    updated_ago: formatTimeAgo(latest.timestamp),
+    updated_ago: formatTimeAgo(fallback.timestamp),
   };
 }
 
@@ -267,6 +288,36 @@ export async function fetchRegistrySummary(): Promise<RegistryModelSummary | nul
     return null;
   }
 
+  async function buildFallbackSummary() {
+    const metrics = await db
+      .collection("aqi_model_metrics_rawalpindi")
+      .findOne({ model_name: bestName });
+    const fallbackMetrics = metrics ??
+      (await db
+        .collection("aqi_model_metrics_rawalpindi")
+        .find()
+        .sort({ rmse: 1 })
+        .limit(1)
+        .next());
+
+    return {
+      name: bestName,
+      version: "unknown",
+      stage: dagshubStage,
+      run_id: String(modelMeta?.best_model_run_id ?? "unknown"),
+      source: "",
+      metrics: {
+        rmse: toOptionalNumber(fallbackMetrics?.rmse),
+        mae: toOptionalNumber(fallbackMetrics?.mae),
+        r2: toOptionalNumber(fallbackMetrics?.r2),
+        rmse_24h: toOptionalNumber(fallbackMetrics?.rmse_24h),
+        rmse_48h: toOptionalNumber(fallbackMetrics?.rmse_48h),
+        rmse_72h: toOptionalNumber(fallbackMetrics?.rmse_72h),
+      },
+      updated_at: modelMeta?.updated_at,
+    };
+  }
+
   const modelName = `${bestName}_aqi_rawalpindi`;
   const latest = await dagshubPost<{
     model_versions?: Array<{
@@ -283,12 +334,16 @@ export async function fetchRegistrySummary(): Promise<RegistryModelSummary | nul
 
   const version = latest?.model_versions?.[0];
   if (!version?.run_id) {
-    return null;
+    return buildFallbackSummary();
   }
 
   const run = await dagshubRequest<{
     run?: { data?: { metrics?: Array<{ key: string; value: number }> } };
   }>("/api/2.0/mlflow/runs/get", { run_id: version.run_id });
+
+  if (!run) {
+    return buildFallbackSummary();
+  }
 
   const metrics = new Map(
     (run?.run?.data?.metrics ?? []).map((metric) => [metric.key, metric.value])

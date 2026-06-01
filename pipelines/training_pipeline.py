@@ -72,13 +72,25 @@ def _store_model_metrics(db, metrics_table: List[Dict[str, float]], window_days:
         collection.update_one({"model_name": doc["model_name"]}, {"$set": doc}, upsert=True)
 
 
-def _store_best_model_metadata(db, best_name: str | None, best_type: str | None, best_metrics: Dict[str, float] | None, window_days: int, feature_count: int, updated_at: str) -> None:
+def _store_best_model_metadata(
+    db,
+    best_name: str | None,
+    best_type: str | None,
+    best_metrics: Dict[str, float] | None,
+    window_days: int,
+    feature_count: int,
+    updated_at: str,
+    best_model_run_id: str | None = None,
+    best_model_version: str | None = None,
+) -> None:
     if not best_name or not best_metrics:
         return
     payload = {
         "_id": "latest",
         "best_model_name": best_name,
         "best_model_type": best_type,
+        "best_model_run_id": best_model_run_id,
+        "best_model_version": best_model_version,
         "rmse": _to_native(best_metrics.get("rmse")),
         "mae": _to_native(best_metrics.get("mae")),
         "r2": _to_native(best_metrics.get("r2")),
@@ -238,7 +250,15 @@ def main() -> None:
 
     updated_at = datetime.now(timezone.utc).isoformat()
     _store_model_metrics(db, metrics_table, cutoff_days, len(feature_columns), updated_at)
-    _store_best_model_metadata(db, best_name, best_type, best_metrics, cutoff_days, len(feature_columns), updated_at)
+    _store_best_model_metadata(
+        db,
+        best_name,
+        best_type,
+        best_metrics,
+        cutoff_days,
+        len(feature_columns),
+        updated_at,
+    )
 
     pred_df = None
     if best_model is not None and best_name:
@@ -291,12 +311,23 @@ def main() -> None:
             "horizon_hours": horizon,
         }
 
-        push_model(
+        registry_info = push_model(
             best_model,
             name=f"{best_name}_aqi_rawalpindi",
             metrics=best_metrics,
             artifacts_path=artifacts_dir,
             metadata=model_metadata,
+        )
+        _store_best_model_metadata(
+            db,
+            best_name,
+            best_type,
+            best_metrics,
+            cutoff_days,
+            len(feature_columns),
+            updated_at,
+            best_model_run_id=registry_info.get("run_id"),
+            best_model_version=registry_info.get("version"),
         )
         _store_shap_summary(db, shap_payload, best_name, updated_at)
 

@@ -24,9 +24,9 @@ export default function ModelCompare({ rows }: { rows: ModelMetric[] }) {
         {rows.map((row) => (
           <tr key={row.model_name}>
             <td>{row.model_name}</td>
-            <td>{row.rmse.toFixed(2)}</td>
-            <td>{row.mae.toFixed(2)}</td>
-            <td>{row.r2.toFixed(2)}</td>
+            <td>{Number.isFinite(row.rmse) ? row.rmse.toFixed(2) : "-"}</td>
+            <td>{Number.isFinite(row.mae) ? row.mae.toFixed(2) : "-"}</td>
+            <td>{Number.isFinite(row.r2) ? row.r2.toFixed(2) : "-"}</td>
             <td>{row.rmse_24h?.toFixed(2) ?? "-"}</td>
             <td>{row.rmse_48h?.toFixed(2) ?? "-"}</td>
             <td>{row.rmse_72h?.toFixed(2) ?? "-"}</td>

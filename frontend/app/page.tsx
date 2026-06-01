@@ -126,12 +126,12 @@ export default async function HomePage() {
   const highlights = buildForecastHighlights(predictions);
 
   const hasAlert = predictions.some((row) => row.predicted_aqi >= 150);
+  const hasCurrent = current.updated_ago !== "unknown";
 
   return (
     <>
       <nav className="nav">
         <a href="/">Dashboard</a>
-        <a href="/eda">EDA</a>
         <a href="/models">Models</a>
         <a href="/explain">Explain</a>
       </nav>
@@ -172,7 +172,6 @@ export default async function HomePage() {
           <div className="card">No forecast data yet.</div>
         )}
       </section>
-
       <section className="grid grid-2">
         <div className="card">
           <h2 className="section-title">72h Forecast</h2>
@@ -209,20 +208,26 @@ export default async function HomePage() {
       <section className="grid grid-3">
         <div className="card">
           <strong>PM2.5</strong>
-          <div>{current.pm2_5} µg/m3</div>
+          <div>{hasCurrent ? `${current.pm2_5} µg/m3` : "--"}</div>
         </div>
         <div className="card">
           <strong>PM10</strong>
-          <div>{current.pm10} µg/m3</div>
+          <div>{hasCurrent ? `${current.pm10} µg/m3` : "--"}</div>
         </div>
         <div className="card">
           <strong>Wind</strong>
-          <div>{current.wind_speed_10m} km/h</div>
+          <div>{hasCurrent ? `${current.wind_speed_10m} km/h` : "--"}</div>
         </div>
         <div className="card">
           <strong>Humidity</strong>
-          <div>{current.relative_humidity_2m}%</div>
+          <div>{hasCurrent ? `${current.relative_humidity_2m}%` : "--"}</div>
         </div>
+        {!hasCurrent && (
+          <div className="card">
+            <strong>Status</strong>
+            <div className="muted">Awaiting latest sensor data.</div>
+          </div>
+        )}
       </section>
     </>
   );

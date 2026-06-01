@@ -1,15 +1,16 @@
-import { fetchRegistrySummary } from "@/lib/hopsworks";
+import ModelCompare from "@/components/ModelCompare";
+import { fetchModelMetrics, fetchRegistrySummary } from "@/lib/hopsworks";
 
 export const dynamic = "force-dynamic";
 
 export default async function ModelsPage() {
   const summary = await fetchRegistrySummary();
+  const models = await fetchModelMetrics();
 
   return (
     <>
       <nav className="nav">
         <a href="/">Dashboard</a>
-        <a href="/eda">EDA</a>
         <a href="/models">Models</a>
         <a href="/explain">Explain</a>
       </nav>
@@ -80,6 +81,11 @@ export default async function ModelsPage() {
             <div>No metrics yet.</div>
           )}
         </div>
+      </div>
+
+      <h2 className="section-title">Daily Training Benchmarks</h2>
+      <div className="card">
+        <ModelCompare rows={models} />
       </div>
     </>
   );

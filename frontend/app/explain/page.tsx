@@ -10,7 +10,6 @@ export default async function ExplainPage() {
     <>
       <nav className="nav">
         <a href="/">Dashboard</a>
-        <a href="/eda">EDA</a>
         <a href="/models">Models</a>
         <a href="/explain">Explain</a>
       </nav>

@@ -224,7 +224,7 @@ def push_model(
     metrics: Dict[str, Any],
     artifacts_path: str,
     metadata: Optional[Dict[str, Any]] = None,
-) -> None:
+) -> Dict[str, str]:
     config = _tracking_config()
     timeout = int(config["timeout"])
     base_url = config["tracking_uri"]
@@ -265,6 +265,12 @@ def push_model(
         timeout,
     )
     _transition_stage(session, base_url, name, version, config["stage"], timeout)
+    return {
+        "run_id": run_id,
+        "version": version,
+        "stage": config["stage"],
+        "model_name": name,
+    }
 
 
 def get_model(name: str):

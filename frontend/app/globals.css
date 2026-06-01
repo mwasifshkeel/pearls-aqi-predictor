@@ -68,6 +68,10 @@ main {
   animation: fadeUp 0.6s ease both;
 }
 
+.card .muted {
+  color: rgba(31, 42, 43, 0.6);
+}
+
 .card:hover {
   transform: translateY(-4px);
   box-shadow: 0 22px 48px rgba(0, 0, 0, 0.12);

@@ -298,7 +298,13 @@ def main() -> None:
         raise ValueError("No top features configured")
     features = build_features(merged, top_features)
     features = features.drop_duplicates(subset=["timestamp"]).sort_values("timestamp").reset_index(drop=True)
-    keep_cols = ["timestamp", "european_aqi"] + top_features
+
+    ui_columns = ["pm2_5", "pm10", "wind_speed_10m", "relative_humidity_2m"]
+    ui_columns = [column for column in ui_columns if column in merged.columns]
+    if ui_columns:
+        features = features.merge(merged[["timestamp", *ui_columns]], on="timestamp", how="left")
+
+    keep_cols = ["timestamp", "european_aqi"] + top_features + ui_columns
     keep_cols = [c for c in keep_cols if c in features.columns]
     features = features[keep_cols]
     

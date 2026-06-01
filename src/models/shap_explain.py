@@ -23,3 +23,7 @@ def compute_shap_summary(model, X_sample, feature_names) -> Dict[str, Any]:
     top_values = mean_abs[top_indices].tolist()
 
     return {"features": top_features, "importance": top_values}
+
+def save_shap_json(payload: Dict[str, Any], path: str) -> None:
+    with open(path, "w", encoding="utf-8") as handle:
+        json.dump(payload, handle, indent=2)

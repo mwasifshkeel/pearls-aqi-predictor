@@ -22,13 +22,41 @@ export default async function ModelsPage() {
           {summary ? (
             <div style={{ display: "grid", gap: 10 }}>
               <div>
-                <strong>Name</strong>
-                <div>{summary.name}</div>
+                <strong>Registry Name</strong>
+                <div>{summary.registry_name ?? summary.name}</div>
               </div>
+              {summary.model_name && (
+                <div>
+                  <strong>Model Key</strong>
+                  <div>{summary.model_name}</div>
+                </div>
+              )}
               <div>
                 <strong>Stage</strong>
                 <div>{summary.stage}</div>
               </div>
+              {summary.version && (
+                <div>
+                  <strong>Version</strong>
+                  <div>{summary.version}</div>
+                </div>
+              )}
+              {summary.run_id && (
+                <div>
+                  <strong>Run ID</strong>
+                  <div>{summary.run_id}</div>
+                </div>
+              )}
+              {summary.dagshub_url && (
+                <div>
+                  <strong>DagsHub</strong>
+                  <div>
+                    <a href={summary.dagshub_url} target="_blank" rel="noreferrer">
+                      Open model registry
+                    </a>
+                  </div>
+                </div>
+              )}
               {summary.updated_at && (
                 <div>
                   <strong>Updated</strong>

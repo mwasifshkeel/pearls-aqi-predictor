@@ -75,6 +75,7 @@ def _store_model_metrics(db, metrics_table: List[Dict[str, float]], window_days:
 def _store_best_model_metadata(
     db,
     best_name: str | None,
+    best_registry_name: str | None,
     best_type: str | None,
     best_metrics: Dict[str, float] | None,
     window_days: int,
@@ -88,6 +89,7 @@ def _store_best_model_metadata(
     payload = {
         "_id": "latest",
         "best_model_name": best_name,
+        "best_model_registry_name": best_registry_name,
         "best_model_type": best_type,
         "best_model_run_id": best_model_run_id,
         "best_model_version": best_model_version,
@@ -227,6 +229,7 @@ def main() -> None:
     best_metrics = None
     best_name = None
     best_type = None
+    best_registry_name = None
 
     for config in model_configs:
         model, preds, y_true = train_model(config, X_model, y_model, horizon=horizon)
@@ -239,6 +242,7 @@ def main() -> None:
             best_model = model
             best_name = config.name
             best_type = config.type
+            best_registry_name = f"{config.name}_aqi_rawalpindi"
 
     metrics_df = pd.DataFrame(metrics_table).sort_values("rmse")
     logger.info("Model ranking:\n%s", metrics_df.to_string(index=False))
@@ -253,6 +257,7 @@ def main() -> None:
     _store_best_model_metadata(
         db,
         best_name,
+        best_registry_name,
         best_type,
         best_metrics,
         cutoff_days,
@@ -311,25 +316,31 @@ def main() -> None:
             "horizon_hours": horizon,
         }
 
-        registry_info = push_model(
-            best_model,
-            name=f"{best_name}_aqi_rawalpindi",
-            metrics=best_metrics,
-            artifacts_path=artifacts_dir,
-            metadata=model_metadata,
-        )
-        _store_best_model_metadata(
-            db,
-            best_name,
-            best_type,
-            best_metrics,
-            cutoff_days,
-            len(feature_columns),
-            updated_at,
-            best_model_run_id=registry_info.get("run_id"),
-            best_model_version=registry_info.get("version"),
-        )
         _store_shap_summary(db, shap_payload, best_name, updated_at)
+
+        try:
+            registry_info = push_model(
+                best_model,
+                name=best_registry_name or f"{best_name}_aqi_rawalpindi",
+                metrics=best_metrics,
+                artifacts_path=artifacts_dir,
+                metadata=model_metadata,
+            )
+        except Exception:
+            logger.exception("DagsHub registry push failed; continuing without registry metadata.")
+        else:
+            _store_best_model_metadata(
+                db,
+                best_name,
+                best_registry_name,
+                best_type,
+                best_metrics,
+                cutoff_days,
+                len(feature_columns),
+                updated_at,
+                best_model_run_id=registry_info.get("run_id"),
+                best_model_version=registry_info.get("version"),
+            )
 
     _store_eda_summary(db, data, cutoff_days, updated_at)
 

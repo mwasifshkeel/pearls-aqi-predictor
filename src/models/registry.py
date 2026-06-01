@@ -154,17 +154,32 @@ def _log_artifact(
     artifact_path: str,
     timeout: int,
 ) -> None:
-    with file_path.open("rb") as handle:
-        response = session.post(
-            f"{base_url}/api/2.0/mlflow/runs/log-artifact",
-            data={"run_id": run_id, "path": artifact_path},
-            files={"file": (file_path.name, handle)},
-            timeout=timeout,
-        )
-    if not response.ok:
-        raise RuntimeError(
-            f"DagsHub REST error {response.status_code} log-artifact: {response.text}"
-        )
+    endpoints = [
+        "/api/2.0/mlflow/artifacts/log",
+        "/api/2.0/mlflow/runs/log-artifact",
+    ]
+    last_error = None
+    for path in endpoints:
+        with file_path.open("rb") as handle:
+            response = session.post(
+                f"{base_url}{path}",
+                data={"run_id": run_id, "path": artifact_path},
+                files={"file": (file_path.name, handle)},
+                timeout=timeout,
+            )
+        if response.ok:
+            return
+        last_error = response
+        if response.status_code not in {400, 404}:
+            break
+        if "unsupported endpoint" not in response.text.lower():
+            break
+
+    if last_error is None:
+        raise RuntimeError("DagsHub REST error: log-artifact failed with no response")
+    raise RuntimeError(
+        f"DagsHub REST error {last_error.status_code} log-artifact: {last_error.text}"
+    )
 
 
 def _iter_artifacts(root: Path) -> Iterable[Path]:

@@ -93,6 +93,78 @@ function formatTimeAgo(value: unknown) {
   return `${days}d ago`;
 }
 
+type DagsHubConfig = {
+  baseUrl: string;
+  username: string;
+  token: string;
+  stage: string;
+  repoUrl?: string;
+};
+
+function getDagsHubConfig(): DagsHubConfig | null {
+  const baseUrl =
+    process.env.DAGSHUB_MLFLOW_URI ?? process.env.MLFLOW_TRACKING_URI;
+  const username =
+    process.env.DAGSHUB_USERNAME ?? process.env.MLFLOW_TRACKING_USERNAME;
+  const token =
+    process.env.DAGSHUB_TOKEN ?? process.env.MLFLOW_TRACKING_PASSWORD;
+  if (!baseUrl || !username || !token) {
+    return null;
+  }
+  const trimmed = baseUrl.replace(/\/+$/, "");
+  const repoUrl = trimmed.endsWith(".mlflow")
+    ? trimmed.replace(/\.mlflow$/, "")
+    : undefined;
+  return {
+    baseUrl: trimmed,
+    username,
+    token,
+    stage: modelStage,
+    repoUrl,
+  };
+}
+
+function toIsoFromMs(value: unknown) {
+  if (typeof value === "number") {
+    return new Date(value).toISOString();
+  }
+  return undefined;
+}
+
+async function fetchDagsHubLatestModel(
+  modelName: string | undefined
+): Promise<Record<string, unknown> | null> {
+  if (!modelName) {
+    return null;
+  }
+  const config = getDagsHubConfig();
+  if (!config) {
+    return null;
+  }
+  const auth = Buffer.from(`${config.username}:${config.token}`).toString(
+    "base64"
+  );
+  const response = await fetch(
+    `${config.baseUrl}/api/2.0/mlflow/registered-models/get-latest-versions`,
+    {
+      method: "POST",
+      headers: {
+        Authorization: `Basic ${auth}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ name: modelName, stages: [config.stage] }),
+      cache: "no-store",
+    }
+  );
+  if (!response.ok) {
+    return null;
+  }
+  const payload = (await response.json()) as {
+    model_versions?: Record<string, unknown>[];
+  };
+  return payload.model_versions?.[0] ?? null;
+}
+
 export async function fetchCurrent(): Promise<CurrentAQI> {
   const db = await getDb();
   const baseCollection = db.collection("aqi_features_live_rawalpindi");
@@ -229,22 +301,33 @@ export async function fetchModelMetrics(): Promise<ModelMetric[]> {
 
 export async function fetchRegistrySummary(): Promise<RegistryModelSummary | null> {
   const db = await getDb();
+
   const modelMeta = await db
-    .collection<{ _id: string; best_model_name?: string; updated_at?: string }>(
-      "aqi_model_metadata_rawalpindi"
-    )
+    .collection<{
+      _id: string;
+      best_model_name?: string;
+      best_model_registry_name?: string;
+      best_model_run_id?: string;
+      best_model_version?: string;
+      updated_at?: string;
+    }>("aqi_model_metadata_rawalpindi")
     .findOne({ _id: "latest" });
 
   const bestName = modelMeta?.best_model_name;
-  if (!bestName) {
+  const registryName =
+    modelMeta?.best_model_registry_name ??
+    (bestName ? `${bestName}_aqi_rawalpindi` : undefined);
+
+  if (!bestName || !registryName) {
     return null;
   }
 
+  const dagshubVersion = await fetchDagsHubLatestModel(registryName);
 
-  const metrics = await db
-    .collection("aqi_model_metrics_rawalpindi")
-    .findOne({ model_name: bestName });
-  const fallbackMetrics = metrics ??
+  const metrics =
+    (await db
+      .collection("aqi_model_metrics_rawalpindi")
+      .findOne({ model_name: bestName })) ??
     (await db
       .collection("aqi_model_metrics_rawalpindi")
       .find()
@@ -254,16 +337,41 @@ export async function fetchRegistrySummary(): Promise<RegistryModelSummary | nul
 
   return {
     name: bestName,
-    stage: modelStage,
+    model_name: bestName,
+    registry_name: registryName,
+
+    stage:
+      (dagshubVersion?.current_stage as string | undefined) ??
+      modelStage,
+
+    run_id:
+      (dagshubVersion?.run_id as string | undefined) ??
+      modelMeta?.best_model_run_id,
+
+    version:
+      (dagshubVersion?.version as string | undefined) ??
+      modelMeta?.best_model_version,
+
+    source: dagshubVersion?.source as string | undefined,
+
+    dagshub_url: (() => {
+      const config = getDagsHubConfig();
+      if (!config?.repoUrl) return undefined;
+      return `${config.repoUrl}/models/${registryName}`;
+    })(),
+
     metrics: {
-      rmse: toOptionalNumber(fallbackMetrics?.rmse),
-      mae: toOptionalNumber(fallbackMetrics?.mae),
-      r2: toOptionalNumber(fallbackMetrics?.r2),
-      rmse_24h: toOptionalNumber(fallbackMetrics?.rmse_24h),
-      rmse_48h: toOptionalNumber(fallbackMetrics?.rmse_48h),
-      rmse_72h: toOptionalNumber(fallbackMetrics?.rmse_72h),
+      rmse: toOptionalNumber(metrics?.rmse),
+      mae: toOptionalNumber(metrics?.mae),
+      r2: toOptionalNumber(metrics?.r2),
+      rmse_24h: toOptionalNumber(metrics?.rmse_24h),
+      rmse_48h: toOptionalNumber(metrics?.rmse_48h),
+      rmse_72h: toOptionalNumber(metrics?.rmse_72h),
     },
-    updated_at: modelMeta?.updated_at,
+
+    updated_at:
+      toIsoFromMs(dagshubVersion?.last_updated_timestamp) ??
+      modelMeta?.updated_at,
   };
 }
 

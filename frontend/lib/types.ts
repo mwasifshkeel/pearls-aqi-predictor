@@ -35,7 +35,13 @@ export type ModelMetric = {
 
 export type RegistryModelSummary = {
   name: string;
+  model_name?: string;
+  registry_name?: string;
   stage: string;
+  run_id?: string;
+  version?: string;
+  source?: string;
+  dagshub_url?: string;
   metrics: {
     rmse?: number;
     mae?: number;

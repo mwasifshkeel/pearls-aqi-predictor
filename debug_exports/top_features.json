@@ -1,200 +1,48 @@
-{
-  "features": [
-    "wind_speed_10m_rolling_std_168h",
-    "hour_sin",
-    "is_day",
-    "hour_of_day",
-    "solar_radiation_category",
-    "european_aqi_rolling_std_168h",
-    "day_of_week_cos",
-    "hour_cos",
-    "european_aqi_rolling_std_24h",
-    "european_aqi_rolling_min_168h",
-    "pm10_rolling_mean_24h",
-    "hour_traffic_weight",
-    "days_since_last_rain",
-    "relative_humidity_2m_rolling_min_24h",
-    "pm10_rolling_mean_48h",
-    "european_aqi_rolling_std_48h",
-    "day_of_week",
-    "pm10_rolling_mean_12h",
-    "pm10_rolling_std_168h",
-    "european_aqi_rolling_mean_3h",
-    "day_of_week_sin",
-    "european_aqi_rolling_min_3h",
-    "pm2_5_rolling_mean_6h",
-    "precipitation_cumulative_72h",
-    "nitrogen_dioxide_lag_6h",
-    "pm10_rolling_std_24h",
-    "pm2_5_rolling_min_3h",
-    "is_evening_rush",
-    "pm2_5_rolling_min_6h",
-    "pm2_5_rolling_mean_12h",
-    "oxidant_index",
-    "european_aqi_rolling_std_12h",
-    "pressure_change_6h",
-    "nitrogen_dioxide_lag_1h",
-    "pm2_5_rolling_mean_3h",
-    "pm10_rolling_min_3h",
-    "relative_humidity_2m_rolling_std_24h",
-    "weekend_traffic_factor",
-    "european_aqi_lag_1h",
-    "wind_speed_10m_rolling_min_48h"
-  ],
-  "model_name": "extra_trees",
-  "best_window_days": 80,
-  "feature_count": 40,
-  "selection_rule": "permutation_importance_cumulative_share_0.95",
-  "top_importances": [
-    {
-      "feature": "wind_speed_10m_rolling_std_168h",
-      "importance": 0.5533638527188451,
-      "share": 0.17589899464533987,
-      "cumulative_share": 0.17589899464533987
-    },
-    {
-      "feature": "hour_sin",
-      "importance": 0.37043297442308826,
-      "share": 0.11775035081232565,
-      "cumulative_share": 0.2936493454576655
-    },
-    {
-      "feature": "is_day",
-      "importance": 0.31335941811217294,
-      "share": 0.09960825293838857,
-      "cumulative_share": 0.3932575983960541
-    },
-    {
-      "feature": "hour_of_day",
-      "importance": 0.24919571107708477,
-      "share": 0.07921239313522842,
-      "cumulative_share": 0.47246999153128255
-    },
-    {
-      "feature": "solar_radiation_category",
-      "importance": 0.22228487285231324,
-      "share": 0.07065818532865932,
-      "cumulative_share": 0.5431281768599419
-    },
-    {
-      "feature": "european_aqi_rolling_std_168h",
-      "importance": 0.19475220862587647,
-      "share": 0.061906316312381936,
-      "cumulative_share": 0.6050344931723238
-    },
-    {
-      "feature": "day_of_week_cos",
-      "importance": 0.11071480337458794,
-      "share": 0.03519315999818519,
-      "cumulative_share": 0.640227653170509
-    },
-    {
-      "feature": "hour_cos",
-      "importance": 0.09764405121546105,
-      "share": 0.031038331032121558,
-      "cumulative_share": 0.6712659842026305
-    },
-    {
-      "feature": "european_aqi_rolling_std_24h",
-      "importance": 0.09049627238253208,
-      "share": 0.028766250728209382,
-      "cumulative_share": 0.7000322349308399
-    },
-    {
-      "feature": "european_aqi_rolling_min_168h",
-      "importance": 0.05870409815303575,
-      "share": 0.018660401824126382,
-      "cumulative_share": 0.7186926367549663
-    },
-    {
-      "feature": "pm10_rolling_mean_24h",
-      "importance": 0.05656634779571519,
-      "share": 0.017980870378753035,
-      "cumulative_share": 0.7366735071337194
-    },
-    {
-      "feature": "hour_traffic_weight",
-      "importance": 0.05076241698728197,
-      "share": 0.016135962025635102,
-      "cumulative_share": 0.7528094691593544
-    },
-    {
-      "feature": "days_since_last_rain",
-      "importance": 0.04781479201010939,
-      "share": 0.015198993939395498,
-      "cumulative_share": 0.7680084630987499
-    },
-    {
-      "feature": "relative_humidity_2m_rolling_min_24h",
-      "importance": 0.04147855113370582,
-      "share": 0.013184879004865481,
-      "cumulative_share": 0.7811933421036155
-    },
-    {
-      "feature": "pm10_rolling_mean_48h",
-      "importance": 0.0399338488136813,
-      "share": 0.012693861053866991,
-      "cumulative_share": 0.7938872031574824
-    },
-    {
-      "feature": "european_aqi_rolling_std_48h",
-      "importance": 0.03963175797722087,
-      "share": 0.012597834769960159,
-      "cumulative_share": 0.8064850379274425
-    },
-    {
-      "feature": "day_of_week",
-      "importance": 0.03280585744009912,
-      "share": 0.010428070633525246,
-      "cumulative_share": 0.8169131085609678
-    },
-    {
-      "feature": "pm10_rolling_mean_12h",
-      "importance": 0.02792198245675621,
-      "share": 0.008875622465249205,
-      "cumulative_share": 0.825788731026217
-    },
-    {
-      "feature": "pm10_rolling_std_168h",
-      "importance": 0.02542977055970539,
-      "share": 0.008083417544417257,
-      "cumulative_share": 0.8338721485706342
-    },
-    {
-      "feature": "european_aqi_rolling_mean_3h",
-      "importance": 0.024037101203029466,
-      "share": 0.007640726648528305,
-      "cumulative_share": 0.8415128752191625
-    },
-    {
-      "feature": "day_of_week_sin",
-      "importance": 0.022712274545282442,
-      "share": 0.007219601061751952,
-      "cumulative_share": 0.8487324762809144
-    },
-    {
-      "feature": "european_aqi_rolling_min_3h",
-      "importance": 0.018398820004752993,
-      "share": 0.005848473704228284,
-      "cumulative_share": 0.8545809499851427
-    },
-    {
-      "feature": "pm2_5_rolling_mean_6h",
-      "importance": 0.017077130169306544,
-      "share": 0.005428345226110801,
-      "cumulative_share": 0.8600092952112535
-    },
-    {
-      "feature": "precipitation_cumulative_72h",
-      "importance": 0.016723492154962827,
-      "share": 0.005315933526492541,
-      "cumulative_share": 0.865325228737746
-    },
-    {
-      "feature": "nitrogen_dioxide_lag_6h",
-      "importance": 0.016682127244458656,
-      "share": 0.005302784770686522,
-      "cumulative_share": 0.8706280135084326
-    }
-  ]
-}
+  {
+    "features": [
+      "european_aqi_rolling_std_168h",
+      "wind_speed_10m_rolling_std_168h",
+      "pm10_rolling_mean_168h",
+      "hour_sin",
+      "day_of_week_cos",
+      "hour_of_day",
+      "pm2_5_rolling_min_48h",
+      "pm10_rolling_mean_48h",
+      "pm10_rolling_min_24h",
+      "european_aqi_rolling_std_48h",
+      "pm2_5_rolling_min_24h",
+      "daylight_hours",
+      "wind_speed_10m_rolling_mean_168h",
+      "pm10_rolling_mean_24h",
+      "pm10_rolling_std_48h",
+      "hour_cos",
+      "pollutant_composite_index",
+      "european_aqi_rolling_std_24h",
+      "pm2_5_rolling_mean_12h",
+      "european_aqi_rolling_mean_168h",
+      "european_aqi_rolling_mean_3h",
+      "pm2_5_rolling_min_12h",
+      "european_aqi_rolling_min_24h",
+      "wind_speed_10m_rolling_min_48h",
+      "day_of_week_sin",
+      "precipitation_cumulative_72h",
+      "oxidant_index",
+      "epa_pm25_subindex",
+      "pm10_rolling_std_168h",
+      "pm10_rolling_min_12h",
+      "pm10_rolling_std_24h",
+      "nitrogen_dioxide_lag_6h",
+      "wind_speed_10m_rolling_mean_24h",
+      "relative_humidity_2m_rolling_std_24h",
+      "european_aqi_rolling_std_12h",
+      "pressure_change_6h",
+      "wind_speed_10m_rolling_min_168h",
+      "pm2_5_rolling_min_6h",
+      "pm2_5_rolling_mean_6h",
+      "epa_pm10_subindex"
+    ],
+    "model_name": "catboost",
+    "window_days": 80,
+    "feature_count": 40,
+    "rule": "permutation_importance_0.95"
+  }

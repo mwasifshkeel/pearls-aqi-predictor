@@ -52,7 +52,3 @@ Set repository secrets:
 - `DAGSHUB_TOKEN`
 - `DAGSHUB_EXPERIMENT` (optional, defaults to `aqi_predictor`)
 - `DAGSHUB_MODEL_STAGE` (optional, defaults to `Production`)
-
-## Repo Structure
-
-See [AQI_Project_Plan.md](AQI_Project_Plan.md) for the full implementation plan and dataset details.

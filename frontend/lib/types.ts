@@ -33,6 +33,23 @@ export type ModelMetric = {
   rmse_72h?: number;
 };
 
+export type RegistryModelSummary = {
+  name: string;
+  version: string;
+  stage: string;
+  run_id: string;
+  source: string;
+  metrics: {
+    rmse?: number;
+    mae?: number;
+    r2?: number;
+    rmse_24h?: number;
+    rmse_48h?: number;
+    rmse_72h?: number;
+  };
+  updated_at?: string;
+};
+
 export type HeatmapCell = {
   day: number;
   hour: number;

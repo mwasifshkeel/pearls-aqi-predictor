@@ -1,8 +1,8 @@
 import { NextResponse } from "next/server";
 
-import { fetchModelMetrics } from "@/lib/hopsworks";
+import { fetchRegistrySummary } from "@/lib/hopsworks";
 
 export async function GET() {
-  const data = await fetchModelMetrics();
+  const data = await fetchRegistrySummary();
   return NextResponse.json(data);
 }

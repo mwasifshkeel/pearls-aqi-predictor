@@ -5,6 +5,7 @@ import type {
   EdaSummary,
   ModelMetric,
   PredictionRow,
+  RegistryModelSummary,
   ShapSummary,
 } from "@/lib/types";
 
@@ -12,9 +13,61 @@ type MongoDoc = Record<string, unknown>;
 
 const uri = process.env.MONGO_URI;
 const dbName = process.env.MONGO_DB_NAME ?? "aqi_predictor";
+const dagshubUri = process.env.DAGSHUB_MLFLOW_URI ?? process.env.MLFLOW_TRACKING_URI;
+const dagshubUser = process.env.DAGSHUB_USERNAME ?? process.env.MLFLOW_TRACKING_USERNAME;
+const dagshubToken = process.env.DAGSHUB_TOKEN ?? process.env.MLFLOW_TRACKING_PASSWORD;
+const dagshubStage = process.env.DAGSHUB_MODEL_STAGE ?? "Production";
 
 if (!uri) {
   throw new Error("MONGO_URI is required");
+}
+
+function encodeBasicAuth(username?: string, token?: string) {
+  if (!username || !token) {
+    return null;
+  }
+  return Buffer.from(`${username}:${token}`).toString("base64");
+}
+
+async function dagshubRequest<T>(path: string, params?: Record<string, string>) {
+  if (!dagshubUri || !dagshubUser || !dagshubToken) {
+    return null;
+  }
+  const url = new URL(`${dagshubUri.replace(/\/$/, "")}${path}`);
+  if (params) {
+    for (const [key, value] of Object.entries(params)) {
+      url.searchParams.set(key, value);
+    }
+  }
+  const auth = encodeBasicAuth(dagshubUser, dagshubToken);
+  const response = await fetch(url, {
+    headers: auth ? { Authorization: `Basic ${auth}` } : undefined,
+    cache: "no-store",
+  });
+  if (!response.ok) {
+    return null;
+  }
+  return (await response.json()) as T;
+}
+
+async function dagshubPost<T>(path: string, payload: Record<string, unknown>) {
+  if (!dagshubUri || !dagshubUser || !dagshubToken) {
+    return null;
+  }
+  const auth = encodeBasicAuth(dagshubUser, dagshubToken);
+  const response = await fetch(`${dagshubUri.replace(/\/$/, "")}${path}`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      ...(auth ? { Authorization: `Basic ${auth}` } : {}),
+    },
+    body: JSON.stringify(payload),
+    cache: "no-store",
+  });
+  if (!response.ok) {
+    return null;
+  }
+  return (await response.json()) as T;
 }
 
 declare global {
@@ -199,6 +252,64 @@ export async function fetchModelMetrics(): Promise<ModelMetric[]> {
     rmse_48h: row.rmse_48h !== undefined ? toNumber(row.rmse_48h) : undefined,
     rmse_72h: row.rmse_72h !== undefined ? toNumber(row.rmse_72h) : undefined,
   }));
+}
+
+export async function fetchRegistrySummary(): Promise<RegistryModelSummary | null> {
+  const db = await getDb();
+  const modelMeta = await db
+    .collection<{ _id: string; best_model_name?: string; updated_at?: string }>(
+      "aqi_model_metadata_rawalpindi"
+    )
+    .findOne({ _id: "latest" });
+
+  const bestName = modelMeta?.best_model_name;
+  if (!bestName) {
+    return null;
+  }
+
+  const modelName = `${bestName}_aqi_rawalpindi`;
+  const latest = await dagshubPost<{
+    model_versions?: Array<{
+      name?: string;
+      version?: string;
+      current_stage?: string;
+      run_id?: string;
+      source?: string;
+    }>;
+  }>("/api/2.0/mlflow/registered-models/get-latest-versions", {
+    name: modelName,
+    stages: [dagshubStage],
+  });
+
+  const version = latest?.model_versions?.[0];
+  if (!version?.run_id) {
+    return null;
+  }
+
+  const run = await dagshubRequest<{
+    run?: { data?: { metrics?: Array<{ key: string; value: number }> } };
+  }>("/api/2.0/mlflow/runs/get", { run_id: version.run_id });
+
+  const metrics = new Map(
+    (run?.run?.data?.metrics ?? []).map((metric) => [metric.key, metric.value])
+  );
+
+  return {
+    name: version.name ?? modelName,
+    version: version.version ?? "unknown",
+    stage: version.current_stage ?? dagshubStage,
+    run_id: version.run_id,
+    source: version.source ?? "",
+    metrics: {
+      rmse: metrics.get("rmse"),
+      mae: metrics.get("mae"),
+      r2: metrics.get("r2"),
+      rmse_24h: metrics.get("rmse_24h"),
+      rmse_48h: metrics.get("rmse_48h"),
+      rmse_72h: metrics.get("rmse_72h"),
+    },
+    updated_at: modelMeta?.updated_at,
+  };
 }
 
 export async function fetchEdaSummary(): Promise<EdaSummary> {

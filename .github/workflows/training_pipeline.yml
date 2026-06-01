@@ -21,3 +21,8 @@ jobs:
           MONGO_DB_NAME: ${{ secrets.MONGO_DB_NAME }}
           TRAINING_WINDOW_DAYS: "90"
           USE_EDA_BEST_WINDOW: "false"
+          DAGSHUB_MLFLOW_URI: ${{ secrets.DAGSHUB_MLFLOW_URI }}
+          DAGSHUB_USERNAME: ${{ secrets.DAGSHUB_USERNAME }}
+          DAGSHUB_TOKEN: ${{ secrets.DAGSHUB_TOKEN }}
+          DAGSHUB_EXPERIMENT: ${{ secrets.DAGSHUB_EXPERIMENT }}
+          DAGSHUB_MODEL_STAGE: ${{ secrets.DAGSHUB_MODEL_STAGE }}

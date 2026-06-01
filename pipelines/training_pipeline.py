@@ -240,19 +240,9 @@ def main() -> None:
     _store_model_metrics(db, metrics_table, cutoff_days, len(feature_columns), updated_at)
     _store_best_model_metadata(db, best_name, best_type, best_metrics, cutoff_days, len(feature_columns), updated_at)
 
-    if best_model is not None and best_type in {"lgbm", "xgb", "cat", "rf", "extra", "gbr"}:
-        shap_payload = compute_shap_summary(best_model, X_model.sample(200), feature_columns)
-        shap_path = os.path.join(artifacts_dir, "shap_summary.json")
-        save_shap_json(shap_payload, shap_path)
-
-        push_model(best_model, name=f"{best_name}_aqi_rawalpindi", metrics=best_metrics, artifacts_path=artifacts_dir)
-        _store_shap_summary(db, shap_payload, best_name, updated_at)
-
-    _store_eda_summary(db, data, cutoff_days, updated_at)
-
-    # Write next 72h predictions
-    latest_features = X.tail(horizon)
-    if best_model is not None:
+    pred_df = None
+    if best_model is not None and best_name:
+        latest_features = X.tail(horizon)
         if best_type in {"gru", "lstm"}:
             lookback = 24
             if len(X) < lookback:
@@ -274,17 +264,43 @@ def main() -> None:
                 "confidence_upper": predictions[:horizon] * 1.1,
             }
         )
-        
+
+        predictions_path = os.path.join(artifacts_dir, "predictions.csv")
+        pred_df.to_csv(predictions_path, index=False)
+
         pred_collection = db["aqi_predictions_rawalpindi"]
         pred_collection.create_index([("timestamp", 1), ("model_name", 1)], unique=True)
-        
-        records = pred_df.to_dict('records')
+
+        records = pred_df.to_dict("records")
         for record in records:
             pred_collection.update_one(
                 {"timestamp": record["timestamp"], "model_name": record["model_name"]},
                 {"$set": record},
-                upsert=True
+                upsert=True,
             )
+
+    if best_model is not None and best_type in {"lgbm", "xgb", "cat", "rf", "extra", "gbr"}:
+        shap_payload = compute_shap_summary(best_model, X_model.sample(200), feature_columns)
+        shap_path = os.path.join(artifacts_dir, "shap_summary.json")
+        save_shap_json(shap_payload, shap_path)
+
+        model_metadata = {
+            "model_type": best_type,
+            "window_days": cutoff_days,
+            "feature_count": len(feature_columns),
+            "horizon_hours": horizon,
+        }
+
+        push_model(
+            best_model,
+            name=f"{best_name}_aqi_rawalpindi",
+            metrics=best_metrics,
+            artifacts_path=artifacts_dir,
+            metadata=model_metadata,
+        )
+        _store_shap_summary(db, shap_payload, best_name, updated_at)
+
+    _store_eda_summary(db, data, cutoff_days, updated_at)
 
 
 if __name__ == "__main__":

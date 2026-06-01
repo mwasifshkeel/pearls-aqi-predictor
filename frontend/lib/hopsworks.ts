@@ -13,62 +13,12 @@ type MongoDoc = Record<string, unknown>;
 
 const uri = process.env.MONGO_URI;
 const dbName = process.env.MONGO_DB_NAME ?? "aqi_predictor";
-const dagshubUri = process.env.DAGSHUB_MLFLOW_URI ?? process.env.MLFLOW_TRACKING_URI;
-const dagshubUser = process.env.DAGSHUB_USERNAME ?? process.env.MLFLOW_TRACKING_USERNAME;
-const dagshubToken = process.env.DAGSHUB_TOKEN ?? process.env.MLFLOW_TRACKING_PASSWORD;
-const dagshubStage = process.env.DAGSHUB_MODEL_STAGE ?? "Production";
+const modelStage = process.env.MODEL_STAGE ?? "Production";
 
 if (!uri) {
   throw new Error("MONGO_URI is required");
 }
 
-function encodeBasicAuth(username?: string, token?: string) {
-  if (!username || !token) {
-    return null;
-  }
-  return Buffer.from(`${username}:${token}`).toString("base64");
-}
-
-async function dagshubRequest<T>(path: string, params?: Record<string, string>) {
-  if (!dagshubUri || !dagshubUser || !dagshubToken) {
-    return null;
-  }
-  const url = new URL(`${dagshubUri.replace(/\/$/, "")}${path}`);
-  if (params) {
-    for (const [key, value] of Object.entries(params)) {
-      url.searchParams.set(key, value);
-    }
-  }
-  const auth = encodeBasicAuth(dagshubUser, dagshubToken);
-  const response = await fetch(url, {
-    headers: auth ? { Authorization: `Basic ${auth}` } : undefined,
-    cache: "no-store",
-  });
-  if (!response.ok) {
-    return null;
-  }
-  return (await response.json()) as T;
-}
-
-async function dagshubPost<T>(path: string, payload: Record<string, unknown>) {
-  if (!dagshubUri || !dagshubUser || !dagshubToken) {
-    return null;
-  }
-  const auth = encodeBasicAuth(dagshubUser, dagshubToken);
-  const response = await fetch(`${dagshubUri.replace(/\/$/, "")}${path}`, {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      ...(auth ? { Authorization: `Basic ${auth}` } : {}),
-    },
-    body: JSON.stringify(payload),
-    cache: "no-store",
-  });
-  if (!response.ok) {
-    return null;
-  }
-  return (await response.json()) as T;
-}
 
 declare global {
   // eslint-disable-next-line no-var
@@ -145,7 +95,8 @@ function formatTimeAgo(value: unknown) {
 
 export async function fetchCurrent(): Promise<CurrentAQI> {
   const db = await getDb();
-  const baseCollection = db.collection("aqi_features_rawalpindi");
+  const baseCollection = db.collection("aqi_features_live_rawalpindi");
+  const now = new Date();
   const latest = await baseCollection
     .find({
       european_aqi: { $exists: true },
@@ -153,6 +104,7 @@ export async function fetchCurrent(): Promise<CurrentAQI> {
       pm10: { $exists: true },
       wind_speed_10m: { $exists: true },
       relative_humidity_2m: { $exists: true },
+      timestamp: { $lte: now },
     })
     .sort({ timestamp: -1 })
     .limit(1)
@@ -160,7 +112,7 @@ export async function fetchCurrent(): Promise<CurrentAQI> {
   const fallback =
     latest ??
     (await baseCollection
-      .find()
+      .find({ timestamp: { $lte: now } })
       .sort({ timestamp: -1 })
       .limit(1)
       .next());
@@ -288,80 +240,28 @@ export async function fetchRegistrySummary(): Promise<RegistryModelSummary | nul
     return null;
   }
 
-  async function buildFallbackSummary() {
-    const metrics = await db
+
+  const metrics = await db
+    .collection("aqi_model_metrics_rawalpindi")
+    .findOne({ model_name: bestName });
+  const fallbackMetrics = metrics ??
+    (await db
       .collection("aqi_model_metrics_rawalpindi")
-      .findOne({ model_name: bestName });
-    const fallbackMetrics = metrics ??
-      (await db
-        .collection("aqi_model_metrics_rawalpindi")
-        .find()
-        .sort({ rmse: 1 })
-        .limit(1)
-        .next());
-
-    return {
-      name: bestName,
-      version: "unknown",
-      stage: dagshubStage,
-      run_id: String(modelMeta?.best_model_run_id ?? "unknown"),
-      source: "",
-      metrics: {
-        rmse: toOptionalNumber(fallbackMetrics?.rmse),
-        mae: toOptionalNumber(fallbackMetrics?.mae),
-        r2: toOptionalNumber(fallbackMetrics?.r2),
-        rmse_24h: toOptionalNumber(fallbackMetrics?.rmse_24h),
-        rmse_48h: toOptionalNumber(fallbackMetrics?.rmse_48h),
-        rmse_72h: toOptionalNumber(fallbackMetrics?.rmse_72h),
-      },
-      updated_at: modelMeta?.updated_at,
-    };
-  }
-
-  const modelName = `${bestName}_aqi_rawalpindi`;
-  const latest = await dagshubPost<{
-    model_versions?: Array<{
-      name?: string;
-      version?: string;
-      current_stage?: string;
-      run_id?: string;
-      source?: string;
-    }>;
-  }>("/api/2.0/mlflow/registered-models/get-latest-versions", {
-    name: modelName,
-    stages: [dagshubStage],
-  });
-
-  const version = latest?.model_versions?.[0];
-  if (!version?.run_id) {
-    return buildFallbackSummary();
-  }
-
-  const run = await dagshubRequest<{
-    run?: { data?: { metrics?: Array<{ key: string; value: number }> } };
-  }>("/api/2.0/mlflow/runs/get", { run_id: version.run_id });
-
-  if (!run) {
-    return buildFallbackSummary();
-  }
-
-  const metrics = new Map(
-    (run?.run?.data?.metrics ?? []).map((metric) => [metric.key, metric.value])
-  );
+      .find()
+      .sort({ rmse: 1 })
+      .limit(1)
+      .next());
 
   return {
-    name: version.name ?? modelName,
-    version: version.version ?? "unknown",
-    stage: version.current_stage ?? dagshubStage,
-    run_id: version.run_id,
-    source: version.source ?? "",
+    name: bestName,
+    stage: modelStage,
     metrics: {
-      rmse: metrics.get("rmse"),
-      mae: metrics.get("mae"),
-      r2: metrics.get("r2"),
-      rmse_24h: metrics.get("rmse_24h"),
-      rmse_48h: metrics.get("rmse_48h"),
-      rmse_72h: metrics.get("rmse_72h"),
+      rmse: toOptionalNumber(fallbackMetrics?.rmse),
+      mae: toOptionalNumber(fallbackMetrics?.mae),
+      r2: toOptionalNumber(fallbackMetrics?.r2),
+      rmse_24h: toOptionalNumber(fallbackMetrics?.rmse_24h),
+      rmse_48h: toOptionalNumber(fallbackMetrics?.rmse_48h),
+      rmse_72h: toOptionalNumber(fallbackMetrics?.rmse_72h),
     },
     updated_at: modelMeta?.updated_at,
   };

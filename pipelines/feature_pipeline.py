@@ -240,7 +240,8 @@ def main() -> None:
     lon = float(os.getenv("RAWALPINDI_LON", "73.0679"))
 
     db = get_database()
-    collection = db["aqi_features_rawalpindi"]
+    collection_name = "aqi_features_live_rawalpindi"
+    collection = db[collection_name]
     collection.create_index("timestamp", unique=True)
 
     start_date, end_date, latest_ts = _get_fetch_window(collection)

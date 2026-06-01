@@ -35,10 +35,7 @@ export type ModelMetric = {
 
 export type RegistryModelSummary = {
   name: string;
-  version: string;
   stage: string;
-  run_id: string;
-  source: string;
   metrics: {
     rmse?: number;
     mae?: number;

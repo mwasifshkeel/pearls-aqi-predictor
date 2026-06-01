@@ -29,14 +29,6 @@ export default async function ModelsPage() {
                 <strong>Stage</strong>
                 <div>{summary.stage}</div>
               </div>
-              <div>
-                <strong>Version</strong>
-                <div>v{summary.version}</div>
-              </div>
-              <div>
-                <strong>Run</strong>
-                <div>{summary.run_id}</div>
-              </div>
               {summary.updated_at && (
                 <div>
                   <strong>Updated</strong>

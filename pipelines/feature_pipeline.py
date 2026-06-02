@@ -222,6 +222,7 @@ def _get_fetch_window(collection) -> tuple[str, str, pd.Timestamp | None]:
     latest = next(cursor, None)
     today = pd.Timestamp.utcnow().date()
     end_date = today
+
     if not latest or "timestamp" not in latest:
         start_date = (today - pd.Timedelta(days=365)).isoformat()
         return start_date, end_date.isoformat(), None
@@ -232,9 +233,8 @@ def _get_fetch_window(collection) -> tuple[str, str, pd.Timestamp | None]:
         return start_date, end_date.isoformat(), None
 
     latest_date = min(latest_ts.date(), today)
-    start_date = latest_date
-    return start_date.isoformat(), end_date.isoformat(), latest_ts
-
+    overlap_start = latest_date - pd.Timedelta(hours=168)
+    return overlap_start.isoformat(), end_date.isoformat(), latest_ts
 
 def main() -> None:
     lat = float(os.getenv("RAWALPINDI_LAT", "33.6007"))
@@ -252,12 +252,7 @@ def main() -> None:
 
     start_date_value = pd.to_datetime(start_date).date()
     if start_date_value <= pd.Timestamp.utcnow().date():
-        weather = fetch_weather(
-            lat,
-            lon,
-            start_date=start_date,
-            end_date=end_date,
-        )
+        weather = fetch_weather(lat, lon, start_date=start_date, end_date=end_date)
     else:
         weather = pd.DataFrame()
 
@@ -269,37 +264,35 @@ def main() -> None:
     if not air_quality.empty:
         air_quality = air_quality[air_quality["timestamp"] <= cutoff_ts]
 
-    logger.info(
-        "Fetched forecast weather rows=%s range=%s..%s",
-        len(weather),
-        weather["timestamp"].min(),
-        weather["timestamp"].max(),
-    )
-    logger.info(
-        "Fetched forecast air quality rows=%s range=%s..%s",
-        len(air_quality),
-        air_quality["timestamp"].min(),
-        air_quality["timestamp"].max(),
-    )
+    logger.info("Fetched forecast weather rows=%s range=%s..%s", len(weather), weather["timestamp"].min(), weather["timestamp"].max())
+    logger.info("Fetched forecast air quality rows=%s range=%s..%s", len(air_quality), air_quality["timestamp"].min(), air_quality["timestamp"].max())
 
     merged = merge_weather_aq(weather, air_quality)
     if not merged.empty:
         merged = merged[merged["timestamp"] <= cutoff_ts]
+
     if latest_ts is not None and latest_ts >= cutoff_ts:
         logger.info("Latest timestamp %s is beyond cutoff; refreshing current-day data", latest_ts)
         latest_ts = None
-    if latest_ts is not None:
-        merged = merged[merged["timestamp"] > latest_ts]
+
     if merged.empty:
-        logger.info("No new data found after %s", latest_ts)
+        logger.info("No new data to process")
         return
-    logger.info("Merged forecast rows=%s", len(merged))
+    logger.info("Merged rows with overlap=%s", len(merged))
 
     top_features = list(TOP_FEATURES)
     if not top_features:
         raise ValueError("No top features configured")
+
     features = build_features(merged, top_features)
     features = features.drop_duplicates(subset=["timestamp"]).sort_values("timestamp").reset_index(drop=True)
+
+    if latest_ts is not None:
+        features = features[features["timestamp"] > latest_ts]
+
+    if features.empty:
+        logger.info("No new data found after %s", latest_ts)
+        return
 
     ui_columns = ["pm2_5", "pm10", "wind_speed_10m", "relative_humidity_2m"]
     ui_columns = [column for column in ui_columns if column in merged.columns]
@@ -309,8 +302,7 @@ def main() -> None:
     keep_cols = ["timestamp", "european_aqi"] + top_features + ui_columns
     keep_cols = [c for c in keep_cols if c in features.columns]
     features = features[keep_cols]
-    
-    # Ensure no all-null columns
+
     for column in features.columns:
         if features[column].isna().all():
             features[column] = 0.0
@@ -319,12 +311,12 @@ def main() -> None:
     features[numeric_cols] = features[numeric_cols].astype(float).fillna(0)
 
     logger.info("Doing bulk upsert of features into MongoDB collection %s", collection_name)
-    records = features.to_dict('records')
+    records = features.to_dict("records")
     ops = [
         UpdateOne(
             {"timestamp": r["timestamp"].to_pydatetime()},
             {"$set": r},
-            upsert=True
+            upsert=True,
         )
         for r in records
     ]
@@ -333,7 +325,6 @@ def main() -> None:
         collection.bulk_write(ops, ordered=False)
 
     logger.info("Feature pipeline complete: %s rows", len(features))
-
 
 if __name__ == "__main__":
     main()

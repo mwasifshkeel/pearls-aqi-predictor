@@ -46,6 +46,8 @@ Thumbs.db
 .vscode/
 .idea/
 
+project_report.md
+
 # Frontend
 frontend/node_modules/
 frontend/.next/

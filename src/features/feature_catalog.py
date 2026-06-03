@@ -15,34 +15,34 @@ FEATURE_SOURCES = {
 }
 
 TOP_FEATURES = [
-    "european_aqi_lag_1h",           # corr 0.985 — was not here, critical
-    "european_aqi_lag_24h",          # critical for 24h horizon
-    "european_aqi_lag_48h",          # critical for 48h horizon
-    "european_aqi_lag_72h",          # critical for 72h horizon
-    "european_aqi_rolling_mean_3h",  # corr 0.991 — strongest rolling signal
-    "european_aqi_rolling_min_3h",   # corr 0.987
-    "pm2_5_rolling_mean_12h",        # corr 0.781
-    "pm10_rolling_mean_24h",         # corr 0.751
-    "pm10_rolling_mean_48h",         # corr 0.714
-    "pm2_5_rolling_min_6h",          # corr 0.658
-    "pm2_5_rolling_mean_6h",         # corr 0.658
-    "european_aqi_rolling_min_168h", # corr 0.644
-    "pm10_rolling_mean_12h",         # corr 0.643
-    "pm2_5_rolling_mean_3h",         # corr 0.604
-    "pm2_5_rolling_min_3h",          # corr 0.598
-    "pm10_rolling_std_24h",          # corr 0.578
-    "pm10_rolling_min_3h",           # corr 0.514
-    "wind_speed_10m_rolling_std_168h", # corr 0.488
-    "european_aqi_rolling_std_12h",    # corr 0.482
-    "european_aqi_rolling_std_24h",    # corr 0.468
-    "days_since_last_rain",            # corr 0.386
-    "european_aqi_rolling_std_48h",    # corr 0.381
-    "pm10_rolling_std_168h",           # corr 0.357
+    "european_aqi_lag_1h",
+    "european_aqi_lag_24h",
+    "european_aqi_lag_48h",
+    "european_aqi_lag_72h",
+    "european_aqi_rolling_mean_3h",
+    "european_aqi_rolling_min_3h",
+    "pm2_5_rolling_mean_12h",
+    "pm10_rolling_mean_24h",
+    "pm10_rolling_mean_48h",
+    "pm2_5_rolling_min_6h",
+    "pm2_5_rolling_mean_6h",
+    "european_aqi_rolling_min_168h",
+    "pm10_rolling_mean_12h",
+    "pm2_5_rolling_mean_3h",
+    "pm2_5_rolling_min_3h",
+    "pm10_rolling_std_24h",
+    "pm10_rolling_min_3h",
+    "wind_speed_10m_rolling_std_168h",
+    "european_aqi_rolling_std_12h",
+    "european_aqi_rolling_std_24h",
+    "days_since_last_rain",
+    "european_aqi_rolling_std_48h",
+    "pm10_rolling_std_168h",
     "wind_speed_10m_rolling_mean_168h",
     "wind_speed_10m_rolling_mean_24h",
     "wind_speed_10m_rolling_min_168h",
     "wind_speed_10m_rolling_min_48h",
-    "precipitation_cumulative_72h",    # corr 0.185
+    "precipitation_cumulative_72h",
     "pollutant_composite_index",
     "oxidant_index",
     "epa_pm25_subindex",

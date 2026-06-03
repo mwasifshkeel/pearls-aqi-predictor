@@ -113,6 +113,10 @@ def _store_best_model_metadata(
 
 
 def _store_shap_summary(db, shap_payload: Dict[str, List[float]], model_name: str, updated_at: str) -> None:
+    if not shap_payload.get("features"):
+        logger.warning("SHAP payload is empty — skipping store")
+        return
+    logger.info("Storing SHAP summary with %d features", len(shap_payload["features"]))
     payload = {
         "_id": "latest",
         "model_name": model_name,

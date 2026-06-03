@@ -327,6 +327,7 @@ def main() -> None:
 
         except Exception:
             logger.exception("Failed to compute/store SHAP")
+            raise
 
         model_metadata = {
             "model_type": best_type,

@@ -303,12 +303,30 @@ def main() -> None:
                 {"$set": record},
                 upsert=True,
             )
-
+    logger.info(
+        "Best model selected: name=%s type=%s",
+        best_name,
+        best_type,
+    )
     if best_model is not None and best_type in {"lightgbm", "xgboost", "catboost", "random_forest", "extra_trees", "gradient_boosting"}:
 
-        shap_payload = compute_shap_summary(best_model, X_model.sample(200), feature_columns)
-        shap_path = os.path.join(artifacts_dir, "shap_summary.json")
-        save_shap_json(shap_payload, shap_path)
+        try:
+            shap_payload = compute_shap_summary(
+                best_model,
+                X_model.sample(min(200, len(X_model))),
+                feature_columns,
+            )
+
+            logger.info(
+                "Generated SHAP summary with %d features",
+                len(shap_payload.get("features", [])),
+            )
+            shap_path = os.path.join(artifacts_dir, "shap_summary.json")
+            save_shap_json(shap_payload, shap_path)
+            _store_shap_summary(db, shap_payload, best_name, updated_at)
+
+        except Exception:
+            logger.exception("Failed to compute/store SHAP")
 
         model_metadata = {
             "model_type": best_type,
@@ -316,8 +334,6 @@ def main() -> None:
             "feature_count": len(feature_columns),
             "horizon_hours": horizon,
         }
-
-        _store_shap_summary(db, shap_payload, best_name, updated_at)
 
         try:
             registry_info = push_model(

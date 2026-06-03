@@ -309,7 +309,7 @@ def main() -> None:
         except Exception:
             logger.exception("Failed to store predictions; continuing")
 
-    if best_model is not None and best_type in {"lightgbm", "xgboost", "catboost", "random_forest", "extra_trees", "gradient_boosting"}:
+    if best_model is not None and best_name in {"lightgbm", "xgboost", "catboost", "random_forest", "extra_trees", "gradient_boosting"}:
 
         try:
             logger.info("Starting SHAP computation for model=%s type=%s", best_name, best_type)

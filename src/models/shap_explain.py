@@ -17,17 +17,16 @@ def compute_shap_summary(model, X_sample, feature_columns):
     # -----------------------------
     if hasattr(model, "get_feature_importance"):
         try:
-            from catboost import Pool  # import here to avoid hard dep elsewhere
+            from catboost import Pool
 
             pool = Pool(X_sample, feature_names=list(feature_columns))
             shap_vals = model.get_feature_importance(data=pool, type="ShapValues")
             shap_vals = np.array(shap_vals)
-
-            # CatBoost appends a bias column → drop last column
-            # Shape is (n_samples, n_features + 1) for single-output
-            # or (n_samples, n_outputs, n_features + 1) for multi-output
+            
+            print(f"DEBUG shap_vals.shape = {shap_vals.shape}, n_features = {len(feature_columns)}")  # ← add this
+            
             if shap_vals.ndim == 3:
-                shap_vals = shap_vals[:, :, :-1].mean(axis=1)  # avg over outputs
+                shap_vals = shap_vals[:, :, :-1].mean(axis=1)
             else:
                 shap_vals = shap_vals[:, :-1]
 

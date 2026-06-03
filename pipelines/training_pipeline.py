@@ -267,50 +267,52 @@ def main() -> None:
 
     pred_df = None
     if best_model is not None and best_name:
-        latest_features = X.tail(horizon)
-        if best_type in {"gru", "lstm"}:
-            lookback = 24
-            if len(X) < lookback:
-                return
-            seq = X.tail(lookback).values.reshape(1, lookback, X.shape[1])
-            preds = best_model.predict(seq)
-        else:
-            preds = best_model.predict(latest_features.iloc[:1])
+        try:
+            latest_features = X.tail(horizon)
+            if best_type in {"gru", "lstm"}:
+                lookback = 24
+                if len(X) < lookback:
+                    logger.warning("Not enough data for sequence model lookback")
+                else:
+                    seq = X.tail(lookback).values.reshape(1, lookback, X.shape[1])
+                    preds = best_model.predict(seq)
+            else:
+                preds = best_model.predict(latest_features.iloc[:1])
 
-        predictions = preds.flatten()
-        pred_times = data["timestamp"].tail(horizon).values
-        pred_df = pd.DataFrame(
-            {
-                "timestamp": pred_times,
-                "predicted_aqi": predictions[:horizon],
-                "model_name": best_name,
-                "horizon_hours": list(range(1, horizon + 1)),
-                "confidence_lower": predictions[:horizon] * 0.9,
-                "confidence_upper": predictions[:horizon] * 1.1,
-            }
-        )
-
-        predictions_path = os.path.join(artifacts_dir, "predictions.csv")
-        pred_df.to_csv(predictions_path, index=False)
-
-        pred_collection = db["aqi_predictions_rawalpindi"]
-        pred_collection.create_index([("timestamp", 1), ("model_name", 1)], unique=True)
-
-        records = pred_df.to_dict("records")
-        for record in records:
-            pred_collection.update_one(
-                {"timestamp": record["timestamp"], "model_name": record["model_name"]},
-                {"$set": record},
-                upsert=True,
+            predictions = preds.flatten()
+            pred_times = data["timestamp"].tail(horizon).values
+            pred_df = pd.DataFrame(
+                {
+                    "timestamp": pred_times,
+                    "predicted_aqi": predictions[:horizon],
+                    "model_name": best_name,
+                    "horizon_hours": list(range(1, horizon + 1)),
+                    "confidence_lower": predictions[:horizon] * 0.9,
+                    "confidence_upper": predictions[:horizon] * 1.1,
+                }
             )
-    logger.info(
-        "Best model selected: name=%s type=%s",
-        best_name,
-        best_type,
-    )
+
+            predictions_path = os.path.join(artifacts_dir, "predictions.csv")
+            pred_df.to_csv(predictions_path, index=False)
+
+            pred_collection = db["aqi_predictions_rawalpindi"]
+            # Don't use unique index — use upsert instead to handle re-runs
+            records = pred_df.to_dict("records")
+            for record in records:
+                pred_collection.update_one(
+                    {"timestamp": record["timestamp"], "model_name": record["model_name"]},
+                    {"$set": record},
+                    upsert=True,
+                )
+            logger.info("Stored %d predictions", len(records))
+
+        except Exception:
+            logger.exception("Failed to store predictions; continuing")
+
     if best_model is not None and best_type in {"lightgbm", "xgboost", "catboost", "random_forest", "extra_trees", "gradient_boosting"}:
 
         try:
+            logger.info("Starting SHAP computation for model=%s type=%s", best_name, best_type)
             shap_payload = compute_shap_summary(
                 best_model,
                 X_model.sample(min(200, len(X_model))),
@@ -327,7 +329,6 @@ def main() -> None:
 
         except Exception:
             logger.exception("Failed to compute/store SHAP")
-            return
 
         model_metadata = {
             "model_type": best_type,

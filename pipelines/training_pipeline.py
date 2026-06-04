@@ -296,7 +296,7 @@ def main() -> None:
             pred_df.to_csv(predictions_path, index=False)
 
             pred_collection = db["aqi_predictions_rawalpindi"]
-            # Don't use unique index — use upsert instead to handle re-runs
+
             records = pred_df.to_dict("records")
             for record in records:
                 pred_collection.update_one(

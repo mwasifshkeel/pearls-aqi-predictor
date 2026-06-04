@@ -1,5 +1,5 @@
 import ModelCompare from "@/components/ModelCompare";
-import { fetchModelMetrics, fetchRegistrySummary } from "@/lib/hopsworks";
+import { fetchModelMetrics, fetchRegistrySummary } from "@/lib/db";
 
 export const dynamic = "force-dynamic";
 
@@ -69,7 +69,7 @@ export default async function ModelsPage() {
           )}
         </div>
         <div className="card">
-         tsx          <h2 className="section-title">Latest Metrics</h2>
+         <h2 className="section-title">Latest Metrics</h2>
           {summary ? (
             <div style={{ display: "grid", gap: 12 }}>
               <div>

@@ -3,12 +3,12 @@
 import { useMemo } from "react";
 
 const scale = [
-  { max: 50, color: "#2f9f5b", label: "Good" },
-  { max: 100, color: "#f0c419", label: "Moderate" },
-  { max: 150, color: "#f28c28", label: "Sensitive" },
-  { max: 200, color: "#d94a38", label: "Unhealthy" },
-  { max: 300, color: "#6a2c91", label: "Very Unhealthy" },
-  { max: 500, color: "#5b1a1a", label: "Hazardous" },
+  { max: 20, color: "#50F0E6", label: "Good" },
+  { max: 40, color: "#50CCAA", label: "Fair" },
+  { max: 60, color: "#F0E641", label: "Moderate" },
+  { max: 80, color: "#FF5050", label: "Poor" },
+  { max: 100, color: "#960032", label: "Very Poor" },
+  { max: Infinity, color: "#7D2181", label: "Extremely Poor" },
 ];
 
 function getScaleEntry(value: number) {
@@ -16,7 +16,12 @@ function getScaleEntry(value: number) {
 }
 
 export default function AQIGauge({ value }: { value: number }) {
-  const angle = Math.min(180, Math.max(0, (value / 500) * 180));
+  const MAX_GAUGE_VALUE = 120;
+
+  const angle = Math.min(
+    180,
+    Math.max(0, (Math.min(value, MAX_GAUGE_VALUE) / MAX_GAUGE_VALUE) * 180)
+  );
   const entry = useMemo(() => getScaleEntry(value), [value]);
 
   return (

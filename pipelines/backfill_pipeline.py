@@ -86,7 +86,7 @@ def main() -> None:
     # Create unique index on timestamp
     collection.create_index("timestamp", unique=True)
 
-    # Clean up future rows and (optionally) data older than the backfill window.
+    # Clean up future rows and data older than the backfill window.
     cutoff_end = dt.datetime.combine(end_value, dt.time.max, tzinfo=dt.timezone.utc)
     cutoff_start = dt.datetime.combine(start_value, dt.time.min, tzinfo=dt.timezone.utc)
     delete_future = collection.delete_many({"timestamp": {"$gt": cutoff_end}})

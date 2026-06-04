@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 
-import { fetchShapSummary } from "@/lib/hopsworks";
+import { fetchShapSummary } from "@/lib/db";
 
 export async function GET() {
   const data = await fetchShapSummary();

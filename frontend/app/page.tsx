@@ -2,7 +2,7 @@ import AQIGauge from "@/components/AQIGauge";
 import AlertBanner from "@/components/AlertBanner";
 import ForecastChart from "@/components/ForecastChart";
 import FeatureImportanceBar from "@/components/FeatureImportanceBar";
-import { fetchCurrent, fetchPredictions, fetchShapSummary } from "@/lib/hopsworks";
+import { fetchCurrent, fetchPredictions, fetchShapSummary } from "@/lib/db";
 import type { PredictionRow } from "@/lib/types";
 
 export const dynamic = "force-dynamic";
@@ -200,7 +200,12 @@ export default async function HomePage() {
         </div>
         <div className="card">
           <h2 className="section-title">Drivers Right Now</h2>
-          <FeatureImportanceBar data={shapSummary} />
+          <FeatureImportanceBar
+            data={{
+              features: shapSummary.features.slice(0, 10),
+              importance: shapSummary.importance.slice(0, 10),
+            }}
+          />
         </div>
       </section>
 

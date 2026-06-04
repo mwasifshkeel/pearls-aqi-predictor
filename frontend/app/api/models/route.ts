@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 
-import { fetchRegistrySummary } from "@/lib/hopsworks";
+import { fetchRegistrySummary } from "@/lib/db";
 
 export async function GET() {
   const data = await fetchRegistrySummary();

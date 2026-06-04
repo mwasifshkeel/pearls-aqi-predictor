@@ -1,5 +1,5 @@
 import FeatureImportanceBar from "@/components/FeatureImportanceBar";
-import { fetchShapSummary } from "@/lib/hopsworks";
+import { fetchShapSummary } from "@/lib/db";
 
 export const dynamic = "force-dynamic";
 

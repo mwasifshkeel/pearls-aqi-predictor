@@ -201,7 +201,7 @@ def push_model(
         artifact_root.mkdir(parents=True, exist_ok=True)
         model_path = artifact_root / _MODEL_FILENAME
         joblib.dump(model, model_path)
-        mlflow.log_artifacts(str(artifact_root))  # uploads everything including model.pkl
+        mlflow.log_artifacts(str(artifact_root))
 
         # Register model
         model_uri = f"runs:/{run_id}/{_MODEL_FILENAME}"

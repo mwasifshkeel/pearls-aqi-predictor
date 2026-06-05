@@ -280,17 +280,18 @@ def main() -> None:
                 preds = best_model.predict(latest_features.iloc[:1])
 
             predictions = preds.flatten()
-            pred_times = data["timestamp"].tail(horizon).values
-            pred_df = pd.DataFrame(
-                {
-                    "timestamp": pred_times,
-                    "predicted_aqi": predictions[:horizon],
-                    "model_name": best_name,
-                    "horizon_hours": list(range(1, horizon + 1)),
-                    "confidence_lower": predictions[:horizon] * 0.9,
-                    "confidence_upper": predictions[:horizon] * 1.1,
-                }
-            )
+
+            last_ts = data["timestamp"].max()
+            pred_times = [last_ts + pd.Timedelta(hours=i) for i in range(1, horizon + 1)]
+
+            pred_df = pd.DataFrame({
+                "timestamp": pred_times,
+                "predicted_aqi": predictions[:horizon],
+                "model_name": best_name,
+                "horizon_hours": list(range(1, horizon + 1)),
+                "confidence_lower": predictions[:horizon] * 0.9,
+                "confidence_upper": predictions[:horizon] * 1.1,
+            })
 
             predictions_path = os.path.join(artifacts_dir, "predictions.csv")
             pred_df.to_csv(predictions_path, index=False)
@@ -299,6 +300,7 @@ def main() -> None:
 
             records = pred_df.to_dict("records")
             for record in records:
+                record["updated_at"] = updated_at
                 pred_collection.update_one(
                     {"timestamp": record["timestamp"], "model_name": record["model_name"]},
                     {"$set": record},

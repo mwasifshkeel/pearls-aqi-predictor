@@ -236,16 +236,34 @@ def _get_fetch_window(collection) -> tuple[str, str, pd.Timestamp | None]:
     overlap_start = latest_date - pd.Timedelta(hours=168)
     return overlap_start.isoformat(), end_date.isoformat(), latest_ts
 
+
+def _get_training_collection_latest_ts(collection) -> pd.Timestamp | None:
+    """Return the latest timestamp already stored in aqi_features_rawalpindi."""
+    cursor = collection.find().sort("timestamp", -1).limit(1)
+    latest = next(cursor, None)
+    if not latest or "timestamp" not in latest:
+        return None
+    ts = pd.to_datetime(latest["timestamp"], utc=True, errors="coerce")
+    return None if pd.isna(ts) else ts
+
+
 def main() -> None:
     lat = float(os.getenv("RAWALPINDI_LAT", "33.6007"))
     lon = float(os.getenv("RAWALPINDI_LON", "73.0679"))
 
     db = get_database()
-    collection_name = "aqi_features_live_rawalpindi"
-    collection = db[collection_name]
-    collection.create_index("timestamp", unique=True)
 
-    start_date, end_date, latest_ts = _get_fetch_window(collection)
+    # Live collection (existing behaviour)
+    live_collection_name = "aqi_features_live_rawalpindi"
+    live_collection = db[live_collection_name]
+    live_collection.create_index("timestamp", unique=True)
+
+    # Training collection (kept in sync by this pipeline)
+    training_collection_name = "aqi_features_rawalpindi"
+    training_collection = db[training_collection_name]
+    training_collection.create_index("timestamp", unique=True)
+
+    start_date, end_date, latest_ts = _get_fetch_window(live_collection)
     logger.info("Fetching window start=%s end=%s latest=%s", start_date, end_date, latest_ts or "none")
     cutoff_ts = pd.Timestamp.utcnow().floor("H")
     logger.info("Applying fetch cutoff at %s", cutoff_ts)
@@ -310,9 +328,12 @@ def main() -> None:
     numeric_cols = features.select_dtypes(include=["number"]).columns
     features[numeric_cols] = features[numeric_cols].astype(float).fillna(0)
 
-    logger.info("Doing bulk upsert of features into MongoDB collection %s", collection_name)
+    # ------------------------------------------------------------------ #
+    # Upsert into live collection (existing behaviour)                     #
+    # ------------------------------------------------------------------ #
+    logger.info("Doing bulk upsert of features into MongoDB collection %s", live_collection_name)
     records = features.to_dict("records")
-    ops = [
+    live_ops = [
         UpdateOne(
             {"timestamp": r["timestamp"].to_pydatetime()},
             {"$set": r},
@@ -320,11 +341,42 @@ def main() -> None:
         )
         for r in records
     ]
+    if live_ops:
+        live_collection.bulk_write(live_ops, ordered=False)
+    logger.info("Live feature pipeline complete: %s rows", len(features))
 
-    if ops:
-        collection.bulk_write(ops, ordered=False)
+    # Upsert into training collection
+    training_latest_ts = _get_training_collection_latest_ts(training_collection)
+    logger.info(
+        "Training collection %s latest timestamp: %s",
+        training_collection_name,
+        training_latest_ts or "none (empty)",
+    )
 
-    logger.info("Feature pipeline complete: %s rows", len(features))
+    training_features = features.copy()
+    if training_latest_ts is not None:
+        training_features = training_features[training_features["timestamp"] > training_latest_ts]
+
+    if training_features.empty:
+        logger.info("No new rows for training collection after %s", training_latest_ts)
+    else:
+        training_records = training_features.to_dict("records")
+        training_ops = [
+            UpdateOne(
+                {"timestamp": r["timestamp"].to_pydatetime()},
+                {"$set": r},
+                upsert=True,
+            )
+            for r in training_records
+        ]
+        training_collection.bulk_write(training_ops, ordered=False)
+        logger.info(
+            "Training collection upsert complete: %s new rows (range %s .. %s)",
+            len(training_records),
+            training_features["timestamp"].min(),
+            training_features["timestamp"].max(),
+        )
+
 
 if __name__ == "__main__":
     main()

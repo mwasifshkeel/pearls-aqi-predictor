@@ -248,17 +248,17 @@ def _get_training_collection_latest_ts(collection) -> pd.Timestamp | None:
 
 
 def main() -> None:
+    from src.features.feature_catalog import FEATURE_CATALOG  # full catalog
+
     lat = float(os.getenv("RAWALPINDI_LAT", "33.6007"))
     lon = float(os.getenv("RAWALPINDI_LON", "73.0679"))
 
     db = get_database()
 
-    # Live collection (existing behaviour)
     live_collection_name = "aqi_features_live_rawalpindi"
     live_collection = db[live_collection_name]
     live_collection.create_index("timestamp", unique=True)
 
-    # Training collection (kept in sync by this pipeline)
     training_collection_name = "aqi_features_rawalpindi"
     training_collection = db[training_collection_name]
     training_collection.create_index("timestamp", unique=True)
@@ -282,8 +282,8 @@ def main() -> None:
     if not air_quality.empty:
         air_quality = air_quality[air_quality["timestamp"] <= cutoff_ts]
 
-    logger.info("Fetched forecast weather rows=%s range=%s..%s", len(weather), weather["timestamp"].min(), weather["timestamp"].max())
-    logger.info("Fetched forecast air quality rows=%s range=%s..%s", len(air_quality), air_quality["timestamp"].min(), air_quality["timestamp"].max())
+    logger.info("Fetched weather rows=%s range=%s..%s", len(weather), weather["timestamp"].min(), weather["timestamp"].max())
+    logger.info("Fetched air quality rows=%s range=%s..%s", len(air_quality), air_quality["timestamp"].min(), air_quality["timestamp"].max())
 
     merged = merge_weather_aq(weather, air_quality)
     if not merged.empty:
@@ -299,53 +299,59 @@ def main() -> None:
     logger.info("Merged rows with overlap=%s", len(merged))
 
     top_features = list(TOP_FEATURES)
+    all_features = list(FEATURE_CATALOG)
+
     if not top_features:
         raise ValueError("No top features configured")
-
-    features = build_features(merged, top_features)
-    features = features.drop_duplicates(subset=["timestamp"]).sort_values("timestamp").reset_index(drop=True)
-
-    if latest_ts is not None:
-        features = features[features["timestamp"] > latest_ts]
-
-    if features.empty:
-        logger.info("No new data found after %s", latest_ts)
-        return
+    if not all_features:
+        raise ValueError("No features in FEATURE_CATALOG")
 
     ui_columns = ["pm2_5", "pm10", "wind_speed_10m", "relative_humidity_2m"]
-    ui_columns = [column for column in ui_columns if column in merged.columns]
-    if ui_columns:
-        features = features.merge(merged[["timestamp", *ui_columns]], on="timestamp", how="left")
+    ui_columns = [col for col in ui_columns if col in merged.columns]
 
-    keep_cols = ["timestamp", "european_aqi"] + top_features + ui_columns
-    keep_cols = [c for c in keep_cols if c in features.columns]
-    features = features[keep_cols]
 
-    for column in features.columns:
-        if features[column].isna().all():
-            features[column] = 0.0
+    live_features = build_features(merged, top_features)
+    live_features = (
+        live_features
+        .drop_duplicates(subset=["timestamp"])
+        .sort_values("timestamp")
+        .reset_index(drop=True)
+    )
 
-    numeric_cols = features.select_dtypes(include=["number"]).columns
-    features[numeric_cols] = features[numeric_cols].astype(float).fillna(0)
+    if latest_ts is not None:
+        live_features = live_features[live_features["timestamp"] > latest_ts]
 
-    # ------------------------------------------------------------------ #
-    # Upsert into live collection (existing behaviour)                     #
-    # ------------------------------------------------------------------ #
-    logger.info("Doing bulk upsert of features into MongoDB collection %s", live_collection_name)
-    records = features.to_dict("records")
-    live_ops = [
-        UpdateOne(
-            {"timestamp": r["timestamp"].to_pydatetime()},
-            {"$set": r},
-            upsert=True,
-        )
-        for r in records
-    ]
-    if live_ops:
+    if live_features.empty:
+        logger.info("No new live data found after %s", latest_ts)
+    else:
+        if ui_columns:
+            live_features = live_features.merge(
+                merged[["timestamp", *ui_columns]], on="timestamp", how="left"
+            )
+
+        keep_live = ["timestamp", "european_aqi"] + top_features + ui_columns
+        keep_live = [c for c in keep_live if c in live_features.columns]
+        live_features = live_features[keep_live]
+
+        for col in live_features.columns:
+            if live_features[col].isna().all():
+                live_features[col] = 0.0
+        numeric_cols = live_features.select_dtypes(include=["number"]).columns
+        live_features[numeric_cols] = live_features[numeric_cols].astype(float).fillna(0)
+
+        logger.info("Doing bulk upsert into live collection %s", live_collection_name)
+        live_records = live_features.to_dict("records")
+        live_ops = [
+            UpdateOne(
+                {"timestamp": r["timestamp"].to_pydatetime()},
+                {"$set": r},
+                upsert=True,
+            )
+            for r in live_records
+        ]
         live_collection.bulk_write(live_ops, ordered=False)
-    logger.info("Live feature pipeline complete: %s rows", len(features))
+        logger.info("Live feature pipeline complete: %s rows", len(live_features))
 
-    # Upsert into training collection
     training_latest_ts = _get_training_collection_latest_ts(training_collection)
     logger.info(
         "Training collection %s latest timestamp: %s",
@@ -353,13 +359,35 @@ def main() -> None:
         training_latest_ts or "none (empty)",
     )
 
-    training_features = features.copy()
+    training_features = build_features(merged, all_features)
+    training_features = (
+        training_features
+        .drop_duplicates(subset=["timestamp"])
+        .sort_values("timestamp")
+        .reset_index(drop=True)
+    )
+
     if training_latest_ts is not None:
         training_features = training_features[training_features["timestamp"] > training_latest_ts]
 
     if training_features.empty:
         logger.info("No new rows for training collection after %s", training_latest_ts)
     else:
+        if ui_columns:
+            training_features = training_features.merge(
+                merged[["timestamp", *ui_columns]], on="timestamp", how="left"
+            )
+
+        keep_training = ["timestamp", "european_aqi"] + all_features + ui_columns
+        keep_training = [c for c in keep_training if c in training_features.columns]
+        training_features = training_features[keep_training]
+
+        for col in training_features.columns:
+            if training_features[col].isna().all():
+                training_features[col] = 0.0
+        numeric_cols = training_features.select_dtypes(include=["number"]).columns
+        training_features[numeric_cols] = training_features[numeric_cols].astype(float).fillna(0)
+
         training_records = training_features.to_dict("records")
         training_ops = [
             UpdateOne(
@@ -376,7 +404,6 @@ def main() -> None:
             training_features["timestamp"].min(),
             training_features["timestamp"].max(),
         )
-
 
 if __name__ == "__main__":
     main()

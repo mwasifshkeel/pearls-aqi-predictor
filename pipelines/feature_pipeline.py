@@ -248,7 +248,8 @@ def _get_training_collection_latest_ts(collection) -> pd.Timestamp | None:
 
 
 def main() -> None:
-    from src.features.feature_catalog import FEATURE_CATALOG  # full catalog
+    from src.features.feature_catalog import get_feature_catalog
+    FEATURE_CATALOG = get_feature_catalog()
 
     lat = float(os.getenv("RAWALPINDI_LAT", "33.6007"))
     lon = float(os.getenv("RAWALPINDI_LON", "73.0679"))

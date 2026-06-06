@@ -368,18 +368,17 @@ def main() -> None:
         .reset_index(drop=True)
     )
 
+    raw_cols = ["timestamp"] + [col for col in merged.columns if col not in training_features.columns]
+    training_features = training_features.merge(merged[raw_cols], on="timestamp", how="left")
+
     if training_latest_ts is not None:
         training_features = training_features[training_features["timestamp"] > training_latest_ts]
 
     if training_features.empty:
         logger.info("No new rows for training collection after %s", training_latest_ts)
     else:
-        if ui_columns:
-            training_features = training_features.merge(
-                merged[["timestamp", *ui_columns]], on="timestamp", how="left"
-            )
-
-        keep_training = ["timestamp", "european_aqi"] + all_features + ui_columns
+        raw_cols_to_keep = [col for col in merged.columns if col not in (["timestamp", "european_aqi"] + all_features + ui_columns)]
+        keep_training = ["timestamp", "european_aqi"] + all_features + ui_columns + raw_cols_to_keep
         keep_training = [c for c in keep_training if c in training_features.columns]
         training_features = training_features[keep_training]
 

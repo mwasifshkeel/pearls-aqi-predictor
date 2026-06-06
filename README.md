@@ -24,6 +24,12 @@ Goals
 - Make experimentation reproducible: data, features, metrics, and model artefacts are versioned and snapshotted.
 - Keep the system light on infra: GitHub Actions schedule pipelines, MongoDB acts as a lightweight feature store, and the frontend is serverless‑friendly.
 
+
+Live Demo
+---------
+The dashboard is publicly accessible at: [Deployed Website](https://pearls-aqi-predictor.vercel.app/)
+
+
 Quickstart (Local Development)
 ------------------------------
 

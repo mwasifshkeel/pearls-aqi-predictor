@@ -15,12 +15,14 @@ This repository implements a production‑oriented AQI forecasting system that:
 - Collects hourly weather and air‑quality data from Open‑Meteo.
 - Builds a rich feature catalog including temporal encodings, lag features (1h → 168h), rolling statistics, pollutant indices, and domain‑derived signals.
 - Stores processed features in MongoDB (`aqi_features_rawalpindi`) as a feature store.
-- Trains multi‑output models predicting 72 hours ahead using the latest 90‑day training window by default.
+- Trains multi‑output models predicting daily‑average AQI for the next 3 days using the latest 90‑day training window by default.
 - Benchmarks candidate models (LightGBM, XGBoost, CatBoost, RandomForest, ExtraTrees, GRU/LSTM) and registers the best model to DagsHub MLflow.
 - Writes forecasts (with confidence heuristics) to MongoDB (`aqi_predictions_rawalpindi`) and serves them to a Next.js 14 dashboard.
 
+> **AQI scale:** All values use the **European AQI** scale (typically 0–100+, banded Good → Extremely Poor). This is **not** the same range as the US EPA AQI (0–500), so the numbers here should not be compared one‑to‑one with US AQI readings.
+
 Goals
-- Produce accurate and explainable 72‑hour AQI forecasts.
+- Produce accurate and explainable 3‑day AQI forecasts.
 - Make experimentation reproducible: data, features, metrics, and model artefacts are versioned and snapshotted.
 - Keep the system light on infra: GitHub Actions schedule pipelines, MongoDB acts as a lightweight feature store, and the frontend is serverless‑friendly.
 
@@ -88,7 +90,7 @@ High level flow:
 1. Ingestion: `pipelines/feature_pipeline.py` queries Open‑Meteo (historical + forecast) and converts raw payloads to hourly rows.
 2. Feature Engineering: `src/features/*` computes lag features, rolling statistics, temporal encodings, pollutant indices, and small spatial/time aggregates.
 3. Feature Store: processed rows are upserted to MongoDB (`aqi_features_rawalpindi`) with deduplication and idempotent batching.
-4. Training: `pipelines/training_pipeline.py` loads the latest window (configurable: default 90 days), constructs supervised matrices for multi‑output training (72 steps), trains candidate models, collects metrics, computes SHAP explanations (tree models), and registers the best model to DagsHub MLflow.
+4. Training: `pipelines/training_pipeline.py` loads the latest window (configurable: default 90 days), constructs supervised matrices for multi‑output training (3 daily‑average steps), trains candidate models, collects metrics, computes SHAP explanations (tree models), and registers the best model to DagsHub MLflow.
 5. Prediction: `src/models/*` include predictors that serialize forecasts to MongoDB (`aqi_predictions_rawalpindi`) used by the Next.js API routes under `frontend/app/api`.
 
 Pipeline design considerations
@@ -137,8 +139,8 @@ Modelling Approach
 ------------------
 
 Forecast formulation
-- Multi‑output regression predicting 72 hourly averages ahead from a single snapshot (shape: (n_samples, 72)).
-- This balances computational cost (single model) with the need to model temporal decay across horizons.
+- Multi‑output regression predicting 3 daily‑average AQI values ahead from a single snapshot (shape: (n_samples, 3)); each output is the mean AQI over one of the next three 24h blocks (Day 1, Day 2, Day 3).
+- This balances computational cost (single model) with the need to model temporal decay across the 3‑day horizon, and the daily averaging yields a smoother, lower‑variance target than per‑hour prediction.
 
 Model candidates and configuration
 - LightGBM: tuned with 200–300 estimators, learning_rate 0.03–0.05, num_leaves 15.
@@ -150,14 +152,14 @@ Model candidates and configuration
 
 Training details
 - Default training window is 90 days; split ratio 90/10 train/val to ensure leakage‑free evaluation.
-- Evaluation metrics: RMSE, MAE, R² overall + per‑horizon metrics aggregated to day1/day2/day3 averages (24h windows).
+- Evaluation metrics: RMSE, MAE, R² overall + per‑day metrics (RMSE/R² for Day 1, Day 2, Day 3).
 - SHAP explanations computed for tree models; permutation importance used to derive `TOP_FEATURES`.
 
 Evaluation & Benchmarks - Summary
 --------------------------------
 
 Representative numbers (subject to dataset snapshot):
-- Best tree models: test RMSE ≈ 11–12 AQI units; test R² ≈ 0.40–0.45 on 72‑hour forecast.
+- Best tree models: test RMSE ≈ 11–12 AQI units; test R² ≈ 0.40–0.45 on the 3‑day forecast.
 - Naive baselines: persistence (t+1=t) RMSE is low for 1‑hour horizon but seasonal naives (24h, 168h) are worse; the ML models outperform seasonal naive baselines at matching horizons.
 
 The Overfitting Challenge - Detailed Account
@@ -165,7 +167,7 @@ The Overfitting Challenge - Detailed Account
 
 Observed symptoms
 - Training R² routinely reaches 0.88–0.95 across tree families inside the 90‑day window.
-- Test R² on held‑out 72‑hour horizon stalls around ~0.44 despite many attempts at regularisation and feature selection.
+- Test R² on the held‑out 3‑day horizon stalls around ~0.44 despite many attempts at regularisation and feature selection.
 - RMSE test ≈ 11–12 AQI units, indicating decent central tendency capture but poor precision at spikes.
 
 What we tried and observations

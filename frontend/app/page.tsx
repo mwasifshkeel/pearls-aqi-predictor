@@ -108,10 +108,15 @@ export default async function HomePage() {
       <section className="hero">
         <div>
           <span className="badge">Powered by {current.model_name}</span>
+          <span className="badge" style={{ marginLeft: 8 }}>European AQI</span>
           <h1 className="section-title">Rawalpindi AQI Forecast</h1>
           <p>
             Live air-quality intelligence driven by Open-Meteo and a daily refreshed
             model registry. Updated {current.updated_ago}.
+          </p>
+          <p className="muted" style={{ fontSize: 13 }}>
+            All readings and forecasts use the <strong>European AQI</strong> scale
+            (0–100+), which is not the same range as the US AQI (0–500).
           </p>
         </div>
         <div className="card">

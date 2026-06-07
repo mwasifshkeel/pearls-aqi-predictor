@@ -52,6 +52,9 @@ export default function AQIGauge({ value }: { value: number }) {
       </svg>
       <div style={{ fontSize: 40, fontWeight: 700 }}>{value}</div>
       <div style={{ color: entry.color, fontWeight: 600 }}>{entry.label}</div>
+      <div style={{ fontSize: 12, color: "#6b6b6b", marginTop: 6 }}>
+        European AQI scale (0–100+) · differs from US AQI (0–500)
+      </div>
     </div>
   );
 }

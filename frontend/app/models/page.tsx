@@ -81,28 +81,28 @@ export default async function ModelsPage() {
                 <div>{summary.metrics.mae?.toFixed(2) ?? "-"}</div>
               </div>
               <div>
-                <strong>RMSE 24h</strong>
-                <div>{summary.metrics.rmse_24h?.toFixed(2) ?? "-"}</div>
+                <strong>RMSE Day 1</strong>
+                <div>{summary.metrics.rmse_day1?.toFixed(2) ?? "-"}</div>
               </div>
               <div>
-                <strong>R² 24h</strong>
-                <div>{summary.metrics.r2_24h?.toFixed(3) ?? "-"}</div>
+                <strong>R² Day 1</strong>
+                <div>{summary.metrics.r2_day1?.toFixed(3) ?? "-"}</div>
               </div>
               <div>
-                <strong>RMSE 48h</strong>
-                <div>{summary.metrics.rmse_48h?.toFixed(2) ?? "-"}</div>
+                <strong>RMSE Day 2</strong>
+                <div>{summary.metrics.rmse_day2?.toFixed(2) ?? "-"}</div>
               </div>
               <div>
-                <strong>R² 48h</strong>
-                <div>{summary.metrics.r2_48h?.toFixed(3) ?? "-"}</div>
+                <strong>R² Day 2</strong>
+                <div>{summary.metrics.r2_day2?.toFixed(3) ?? "-"}</div>
               </div>
               <div>
-                <strong>RMSE 72h</strong>
-                <div>{summary.metrics.rmse_72h?.toFixed(2) ?? "-"}</div>
+                <strong>RMSE Day 3</strong>
+                <div>{summary.metrics.rmse_day3?.toFixed(2) ?? "-"}</div>
               </div>
               <div>
-                <strong>R² 72h</strong>
-                <div>{summary.metrics.r2_72h?.toFixed(3) ?? "-"}</div>
+                <strong>R² Day 3</strong>
+                <div>{summary.metrics.r2_day3?.toFixed(3) ?? "-"}</div>
               </div>
             </div>
           ) : (

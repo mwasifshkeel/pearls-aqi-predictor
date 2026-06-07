@@ -22,9 +22,7 @@ def compute_shap_summary(model, X_sample, feature_columns):
             pool = Pool(X_sample, feature_names=list(feature_columns))
             shap_vals = model.get_feature_importance(data=pool, type="ShapValues")
             shap_vals = np.array(shap_vals)
-            
-            print(f"DEBUG shap_vals.shape = {shap_vals.shape}, n_features = {len(feature_columns)}")  # ← add this
-            
+
             if shap_vals.ndim == 3:
                 shap_vals = shap_vals[:, :, :-1].mean(axis=1)
             else:
@@ -51,8 +49,9 @@ def compute_shap_summary(model, X_sample, feature_columns):
     # MULTIOUTPUT HANDLING
     # -----------------------------
     if isinstance(model, MultiOutputRegressor):
+        # One estimator per forecast day — average SHAP importance across all of them.
         shap_values_list = []
-        for est in model.estimators_[:5]:
+        for est in model.estimators_:
             explainer = shap.TreeExplainer(est)
             sv = np.array(explainer.shap_values(X_sample))
             if sv.ndim == 3:

@@ -14,10 +14,11 @@ def evaluate_forecast(y_true: np.ndarray, y_pred: np.ndarray) -> Dict[str, float
 
 
 def per_horizon_metrics(y_true: np.ndarray, y_pred: np.ndarray) -> Dict[str, float]:
+    """Per-day RMSE/R² for a daily-average forecast (each column = one day ahead)."""
     metrics = {}
     horizons = y_true.shape[1]
-    for idx in [23, 47, 71]:
-        if idx < horizons:
-            metrics[f"rmse_{idx+1}h"] = float(np.sqrt(mean_squared_error(y_true[:, idx], y_pred[:, idx])))
-            metrics[f"r2_{idx+1}h"] = float(r2_score(y_true[:, idx], y_pred[:, idx]))
+    for idx in range(horizons):
+        day = idx + 1
+        metrics[f"rmse_day{day}"] = float(np.sqrt(mean_squared_error(y_true[:, idx], y_pred[:, idx])))
+        metrics[f"r2_day{day}"] = float(r2_score(y_true[:, idx], y_pred[:, idx]))
     return metrics

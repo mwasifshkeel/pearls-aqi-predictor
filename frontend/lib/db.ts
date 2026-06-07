@@ -248,15 +248,15 @@
 
     const rows = await predCollection
       .find({ model_name: modelName })
-      .sort({ horizon_hours: 1 })
-      .limit(72)
+      .sort({ horizon_days: 1 })
+      .limit(3)
       .toArray();
 
     return rows.map((row) => ({
       timestamp: toIsoString(row.timestamp),
       predicted_aqi: toNumber(row.predicted_aqi),
       model_name: modelName as string,
-      horizon_hours: toNumber(row.horizon_hours),
+      horizon_days: toNumber(row.horizon_days),
       confidence_lower: toNumber(row.confidence_lower),
       confidence_upper: toNumber(row.confidence_upper),
     }));
@@ -293,12 +293,12 @@
           rmse: toNumber(row.rmse),
           mae: toNumber(row.mae),
           r2: toNumber(row.r2),
-          rmse_24h: row.rmse_24h !== undefined ? toNumber(row.rmse_24h) : undefined,
-          rmse_48h: row.rmse_48h !== undefined ? toNumber(row.rmse_48h) : undefined,
-          rmse_72h: row.rmse_72h !== undefined ? toNumber(row.rmse_72h) : undefined,
-          r2_24h: row.r2_24h !== undefined ? toNumber(row.r2_24h) : undefined,
-          r2_48h: row.r2_48h !== undefined ? toNumber(row.r2_48h) : undefined,
-          r2_72h: row.r2_72h !== undefined ? toNumber(row.r2_72h) : undefined,
+          rmse_day1: row.rmse_day1 !== undefined ? toNumber(row.rmse_day1) : undefined,
+          rmse_day2: row.rmse_day2 !== undefined ? toNumber(row.rmse_day2) : undefined,
+          rmse_day3: row.rmse_day3 !== undefined ? toNumber(row.rmse_day3) : undefined,
+          r2_day1: row.r2_day1 !== undefined ? toNumber(row.r2_day1) : undefined,
+          r2_day2: row.r2_day2 !== undefined ? toNumber(row.r2_day2) : undefined,
+          r2_day3: row.r2_day3 !== undefined ? toNumber(row.r2_day3) : undefined,
       }));
   }
 
@@ -367,12 +367,12 @@
         rmse: toOptionalNumber(metrics?.rmse),
         mae: toOptionalNumber(metrics?.mae),
         r2: toOptionalNumber(metrics?.r2),
-        rmse_24h: toOptionalNumber(metrics?.rmse_24h),
-        rmse_48h: toOptionalNumber(metrics?.rmse_48h),
-        rmse_72h: toOptionalNumber(metrics?.rmse_72h),
-        r2_24h: toOptionalNumber(metrics?.r2_24h),
-        r2_48h: toOptionalNumber(metrics?.r2_48h),
-        r2_72h: toOptionalNumber(metrics?.r2_72h),
+        rmse_day1: toOptionalNumber(metrics?.rmse_day1),
+        rmse_day2: toOptionalNumber(metrics?.rmse_day2),
+        rmse_day3: toOptionalNumber(metrics?.rmse_day3),
+        r2_day1: toOptionalNumber(metrics?.r2_day1),
+        r2_day2: toOptionalNumber(metrics?.r2_day2),
+        r2_day3: toOptionalNumber(metrics?.r2_day3),
       },
 
       updated_at:

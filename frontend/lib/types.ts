@@ -2,7 +2,7 @@ export type PredictionRow = {
   timestamp: string;
   predicted_aqi: number;
   model_name: string;
-  horizon_hours: number;
+  horizon_days: number;
   confidence_lower: number;
   confidence_upper: number;
 };
@@ -28,12 +28,12 @@ export type ModelMetric = {
   rmse: number;
   mae: number;
   r2: number;
-  rmse_24h?: number;
-  rmse_48h?: number;
-  rmse_72h?: number;
-  r2_24h?: number;
-  r2_48h?: number;
-  r2_72h?: number;
+  rmse_day1?: number;
+  rmse_day2?: number;
+  rmse_day3?: number;
+  r2_day1?: number;
+  r2_day2?: number;
+  r2_day3?: number;
 };
 export type RegistryModelSummary = {
   name: string;
@@ -48,12 +48,12 @@ export type RegistryModelSummary = {
     rmse?: number;
     mae?: number;
     r2?: number;
-    rmse_24h?: number;
-    rmse_48h?: number;
-    rmse_72h?: number;
-    r2_24h?: number;
-    r2_48h?: number;
-    r2_72h?: number;
+    rmse_day1?: number;
+    rmse_day2?: number;
+    rmse_day3?: number;
+    r2_day1?: number;
+    r2_day2?: number;
+    r2_day3?: number;
   };
   updated_at?: string;
 };

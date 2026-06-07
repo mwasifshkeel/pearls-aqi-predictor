@@ -15,9 +15,9 @@ export default function ModelCompare({ rows }: { rows: ModelMetric[] }) {
           <th>RMSE</th>
           <th>MAE</th>
           <th>R2</th>
-          <th>RMSE 24h</th>
-          <th>RMSE 48h</th>
-          <th>RMSE 72h</th>
+          <th>RMSE Day 1</th>
+          <th>RMSE Day 2</th>
+          <th>RMSE Day 3</th>
         </tr>
       </thead>
       <tbody>
@@ -27,9 +27,9 @@ export default function ModelCompare({ rows }: { rows: ModelMetric[] }) {
             <td>{Number.isFinite(row.rmse) ? row.rmse.toFixed(2) : "-"}</td>
             <td>{Number.isFinite(row.mae) ? row.mae.toFixed(2) : "-"}</td>
             <td>{Number.isFinite(row.r2) ? row.r2.toFixed(2) : "-"}</td>
-            <td>{row.rmse_24h?.toFixed(2) ?? "-"}</td>
-            <td>{row.rmse_48h?.toFixed(2) ?? "-"}</td>
-            <td>{row.rmse_72h?.toFixed(2) ?? "-"}</td>
+            <td>{row.rmse_day1?.toFixed(2) ?? "-"}</td>
+            <td>{row.rmse_day2?.toFixed(2) ?? "-"}</td>
+            <td>{row.rmse_day3?.toFixed(2) ?? "-"}</td>
           </tr>
         ))}
       </tbody>

@@ -62,12 +62,12 @@ def _store_model_metrics(db, metrics_table: List[Dict[str, float]], window_days:
             "rmse": _to_native(row.get("rmse")),
             "mae": _to_native(row.get("mae")),
             "r2": _to_native(row.get("r2")),
-            "rmse_24h": _to_native(row.get("rmse_24h")),
-            "rmse_48h": _to_native(row.get("rmse_48h")),
-            "rmse_72h": _to_native(row.get("rmse_72h")),
-            "r2_24h": _to_native(row.get("r2_24h")),
-            "r2_48h": _to_native(row.get("r2_48h")),
-            "r2_72h": _to_native(row.get("r2_72h")),
+            "rmse_day1": _to_native(row.get("rmse_day1")),
+            "rmse_day2": _to_native(row.get("rmse_day2")),
+            "rmse_day3": _to_native(row.get("rmse_day3")),
+            "r2_day1": _to_native(row.get("r2_day1")),
+            "r2_day2": _to_native(row.get("r2_day2")),
+            "r2_day3": _to_native(row.get("r2_day3")),
             "window_days": window_days,
             "feature_count": feature_count,
             "updated_at": updated_at,
@@ -99,12 +99,12 @@ def _store_best_model_metadata(
         "rmse": _to_native(best_metrics.get("rmse")),
         "mae": _to_native(best_metrics.get("mae")),
         "r2": _to_native(best_metrics.get("r2")),
-        "rmse_24h": _to_native(best_metrics.get("rmse_24h")),
-        "rmse_48h": _to_native(best_metrics.get("rmse_48h")),
-        "rmse_72h": _to_native(best_metrics.get("rmse_72h")),
-        "r2_24h": _to_native(best_metrics.get("r2_24h")),
-        "r2_48h": _to_native(best_metrics.get("r2_48h")),
-        "r2_72h": _to_native(best_metrics.get("r2_72h")),
+        "rmse_day1": _to_native(best_metrics.get("rmse_day1")),
+        "rmse_day2": _to_native(best_metrics.get("rmse_day2")),
+        "rmse_day3": _to_native(best_metrics.get("rmse_day3")),
+        "r2_day1": _to_native(best_metrics.get("r2_day1")),
+        "r2_day2": _to_native(best_metrics.get("r2_day2")),
+        "r2_day3": _to_native(best_metrics.get("r2_day3")),
         "window_days": window_days,
         "feature_count": feature_count,
         "updated_at": updated_at,
@@ -214,14 +214,26 @@ def main() -> None:
     target = data["european_aqi"].astype(float)
     X = data[feature_columns].astype(float).ffill().fillna(0)
 
-    horizon = 72
-    if len(target) <= horizon:
-        logger.warning("Not enough data to train: rows=%s horizon=%s", len(target), horizon)
+    # Forecast the next 3 days as daily-average AQI. Each training row predicts the
+    # mean AQI over the next three 24h blocks: day1 = hours 1-24, day2 = 25-48, day3 = 49-72.
+    hours_per_day = 24
+    horizon_days = 3
+    horizon_hours = horizon_days * hours_per_day  # 72h lookahead needed per sample
+    if len(target) <= horizon_hours:
+        logger.warning("Not enough data to train: rows=%s horizon_hours=%s", len(target), horizon_hours)
         return
 
-    X_model = X.iloc[:-horizon]
+    target_values = target.values
+    X_model = X.iloc[:-horizon_hours]
     y_model = pd.DataFrame(
-        [target.iloc[i + 1 : i + 1 + horizon].values for i in range(len(target) - horizon)]
+        [
+            [
+                target_values[i + 1 + d * hours_per_day : i + 1 + (d + 1) * hours_per_day].mean()
+                for d in range(horizon_days)
+            ]
+            for i in range(len(target) - horizon_hours)
+        ],
+        columns=[f"day_{d + 1}" for d in range(horizon_days)],
     )
 
     metrics_table = []
@@ -232,7 +244,7 @@ def main() -> None:
     best_registry_name = None
 
     for config in model_configs:
-        model, preds, y_true = train_model(config, X_model, y_model, horizon=horizon)
+        model, preds, y_true = train_model(config, X_model, y_model, horizon=horizon_days)
         metrics = evaluate_forecast(y_true, preds)
         metrics.update(per_horizon_metrics(y_true, preds))
         metrics_table.append({"model": config.name, **metrics})
@@ -268,35 +280,29 @@ def main() -> None:
     pred_df = None
     if best_model is not None and best_name:
         try:
-            latest_features = X.tail(horizon)
-            if best_type in {"gru", "lstm"}:
-                lookback = 24
-                if len(X) < lookback:
-                    logger.warning("Not enough data for sequence model lookback")
-                else:
-                    seq = X.tail(lookback).values.reshape(1, lookback, X.shape[1])
-                    preds = best_model.predict(seq)
-            else:
-                preds = best_model.predict(latest_features.iloc[:1])
-
-            predictions = preds.flatten()
+            # Predict the 3 daily averages from the most recent feature row.
+            latest_features = X.tail(1)
+            preds = best_model.predict(latest_features)
+            predictions = np.clip(np.asarray(preds).flatten()[:horizon_days], 0, None)
 
             last_ts = data["timestamp"].max()
-            pred_times = [last_ts + pd.Timedelta(hours=i) for i in range(1, horizon + 1)]
+            pred_times = [last_ts + pd.Timedelta(days=i) for i in range(1, horizon_days + 1)]
 
             pred_df = pd.DataFrame({
                 "timestamp": pred_times,
-                "predicted_aqi": predictions[:horizon],
+                "predicted_aqi": predictions,
                 "model_name": best_name,
-                "horizon_hours": list(range(1, horizon + 1)),
-                "confidence_lower": predictions[:horizon] * 0.9,
-                "confidence_upper": predictions[:horizon] * 1.1,
+                "horizon_days": list(range(1, horizon_days + 1)),
+                "confidence_lower": predictions * 0.9,
+                "confidence_upper": predictions * 1.1,
             })
 
             predictions_path = os.path.join(artifacts_dir, "predictions.csv")
             pred_df.to_csv(predictions_path, index=False)
 
             pred_collection = db["aqi_predictions_rawalpindi"]
+            # Clear any stale forecasts (e.g. legacy 72-row hourly docs) for this model.
+            pred_collection.delete_many({"model_name": best_name})
 
             records = pred_df.to_dict("records")
             for record in records:
@@ -306,7 +312,7 @@ def main() -> None:
                     {"$set": record},
                     upsert=True,
                 )
-            logger.info("Stored %d predictions", len(records))
+            logger.info("Stored %d daily predictions", len(records))
 
         except Exception:
             logger.exception("Failed to store predictions; continuing")
@@ -336,7 +342,7 @@ def main() -> None:
             "model_type": best_type,
             "window_days": cutoff_days,
             "feature_count": len(feature_columns),
-            "horizon_hours": horizon,
+            "horizon_days": horizon_days,
         }
 
         try:

@@ -177,7 +177,7 @@ def _store_eda_summary(db, data: pd.DataFrame, window_days: int, updated_at: str
 
 def main() -> None:
     db = get_database()
-    collection = db["aqi_features_rawalpindi"]
+    collection = db["aqi_features_live_rawalpindi"]
 
     # Read from MongoDB and convert to pandas DF
     cursor = collection.find().sort("timestamp", 1)
@@ -186,7 +186,7 @@ def main() -> None:
         data = data.drop(columns=["_id"])
 
     if data.empty:
-        raise ValueError("aqi_features_rawalpindi is empty")
+        raise ValueError("aqi_features_live_rawalpindi is empty")
 
     data["timestamp"] = pd.to_datetime(data["timestamp"], utc=True, errors="coerce")
     data = data.dropna(subset=["timestamp"]).sort_values("timestamp").reset_index(drop=True)
